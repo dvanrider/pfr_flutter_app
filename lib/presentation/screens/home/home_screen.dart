@@ -217,6 +217,47 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _LoadSampleDataCard(),
             const SizedBox(height: 32),
+            Text(
+              'Analysis Tools',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _ActionCard(
+                    icon: Icons.compare_arrows,
+                    title: 'Compare Projects',
+                    subtitle: 'Side-by-side comparison',
+                    color: Colors.teal,
+                    onTap: () => context.go('/analysis/compare'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _ActionCard(
+                    icon: Icons.tune,
+                    title: 'Sensitivity Analysis',
+                    subtitle: 'What-if scenarios',
+                    color: Colors.indigo,
+                    onTap: () => context.go('/analysis/sensitivity'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _ActionCard(
+                    icon: Icons.warning_amber,
+                    title: 'Risk Assessment',
+                    subtitle: 'Risk scoring matrix',
+                    color: Colors.deepOrange,
+                    onTap: () => context.go('/analysis/risk'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

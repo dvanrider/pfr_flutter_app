@@ -15,6 +15,9 @@ import 'presentation/screens/help/training_screen.dart';
 import 'presentation/screens/help/metrics_screen.dart';
 import 'presentation/screens/admin/admin_screen.dart';
 import 'presentation/screens/executive/executive_dashboard_screen.dart';
+import 'presentation/screens/analysis/project_comparison_screen.dart';
+import 'presentation/screens/analysis/sensitivity_analysis_screen.dart';
+import 'presentation/screens/analysis/risk_assessment_screen.dart';
 
 /// Router provider that reacts to auth state changes
 final routerProvider = Provider<GoRouter>((ref) {
@@ -125,6 +128,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/executive',
         name: 'executive',
         builder: (context, state) => const ExecutiveDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/analysis/compare',
+        name: 'project-comparison',
+        builder: (context, state) => const ProjectComparisonScreen(),
+      ),
+      GoRoute(
+        path: '/analysis/sensitivity',
+        name: 'sensitivity-analysis',
+        builder: (context, state) {
+          final projectId = state.uri.queryParameters['projectId'];
+          return SensitivityAnalysisScreen(projectId: projectId);
+        },
+      ),
+      GoRoute(
+        path: '/analysis/risk',
+        name: 'risk-assessment',
+        builder: (context, state) {
+          final projectId = state.uri.queryParameters['projectId'];
+          return RiskAssessmentScreen(projectId: projectId);
+        },
       ),
     ],
   );

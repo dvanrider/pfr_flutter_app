@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "firebase deploy --only hosting --project tlpfr-93a08": "tlpfr-93a08"
+  },
+  "targets": {},
+  "etags": {}
+}

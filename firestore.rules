@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+    }
+
+    // Projects collection
+    match /projects/{projectId} {
+      // Allow authenticated users to read all projects (for admin) or filter by userId in app
+      allow read: if request.auth != null;
+
+      // Allow create if authenticated
+      allow create: if request.auth != null;
+
+      // Allow update/delete if user owns the project or is authenticated (for now)
+      allow update, delete: if request.auth != null;
+
+      // Subcollections (capex, opex, benefits)
+      match /{subcollection}/{docId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+}

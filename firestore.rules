@@ -1,26 +1,56 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users collection - users can read/write their own profile
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null;
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Projects collection
+    // Get user role from users collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    // Users collection - all authenticated can read, write restrictions apply
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() &&
+        (request.auth.uid == userId || isAdmin());
+    }
+
+    // Pre-registrations collection
+    match /preregistrations/{email} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Config collection - all authenticated can read
+    match /config/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Role permissions collection - all authenticated can read, admins can write
+    match /role_permissions/{roleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Projects collection - all authenticated can read
     match /projects/{projectId} {
-      // Allow authenticated users to read all projects (for admin) or filter by userId in app
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
 
-      // Allow create if authenticated
-      allow create: if request.auth != null;
-
-      // Allow update/delete if user owns the project or is authenticated (for now)
-      allow update, delete: if request.auth != null;
-
-      // Subcollections (capex, opex, benefits)
+      // Subcollections
       match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null;
+        allow read, write: if isAuthenticated();
       }
     }
   }

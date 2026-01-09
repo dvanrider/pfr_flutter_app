@@ -80,15 +80,39 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 /// User role enum
 enum UserRole {
-  user,
-  admin;
+  requester,
+  approver,
+  executive,
+  admin,
+  superUser;
 
   String get displayName {
     switch (this) {
-      case UserRole.user:
-        return 'User';
+      case UserRole.requester:
+        return 'Requester';
+      case UserRole.approver:
+        return 'Approver';
+      case UserRole.executive:
+        return 'Executive';
       case UserRole.admin:
         return 'Admin';
+      case UserRole.superUser:
+        return 'Super User';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case UserRole.requester:
+        return 'Can create and submit project requests';
+      case UserRole.approver:
+        return 'Can approve or reject project requests';
+      case UserRole.executive:
+        return 'View-only access to all metrics and dashboards';
+      case UserRole.admin:
+        return 'Full access including user management';
+      case UserRole.superUser:
+        return 'Unrestricted access to all system features';
     }
   }
 }
@@ -105,11 +129,11 @@ class UserProfile {
     required this.id,
     required this.email,
     this.displayName,
-    this.role = UserRole.user,
+    this.role = UserRole.requester,
     required this.createdAt,
   });
 
-  bool get isAdmin => role == UserRole.admin;
+  bool get isAdmin => role == UserRole.admin || role == UserRole.superUser;
 
   factory UserProfile.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
@@ -132,8 +156,22 @@ class UserProfile {
   }
 
   static UserRole _parseRole(String? role) {
-    if (role == 'admin') return UserRole.admin;
-    return UserRole.user;
+    if (role == null) return UserRole.requester;
+    switch (role.toLowerCase()) {
+      case 'superuser':
+      case 'super_user':
+        return UserRole.superUser;
+      case 'admin':
+        return UserRole.admin;
+      case 'executive':
+        return UserRole.executive;
+      case 'approver':
+        return UserRole.approver;
+      case 'requester':
+      case 'user':
+      default:
+        return UserRole.requester;
+    }
   }
 }
 
@@ -159,7 +197,7 @@ class UserProfileRepository {
       id: user.uid,
       email: user.email ?? '',
       displayName: user.displayName,
-      role: UserRole.user,
+      role: UserRole.requester,
       createdAt: DateTime.now(),
     );
 

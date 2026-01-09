@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../providers/auth_providers.dart';
+import '../../../providers/user_management_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -41,7 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final authRepo = ref.read(authRepositoryProvider);
-      final profileRepo = ref.read(userProfileRepositoryProvider);
+      final userRepo = ref.read(userManagementRepositoryProvider);
 
       UserCredential credential;
       if (_isLogin) {
@@ -61,9 +62,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       }
 
-      // Create or get user profile in Firestore
+      // Create or get user profile in Firestore (checks for pre-registration)
       if (credential.user != null) {
-        await profileRepo.getOrCreateProfile(credential.user!);
+        await userRepo.ensureUserExists(
+          credential.user!.uid,
+          credential.user!.email ?? _emailController.text.trim(),
+          _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : credential.user!.displayName,
+        );
       }
 
       if (mounted) {

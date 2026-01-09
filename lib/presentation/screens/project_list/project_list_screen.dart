@@ -8,6 +8,7 @@ import '../../../core/constants/financial_constants.dart';
 import '../../../data/models/project.dart';
 import '../../../providers/project_providers.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../providers/role_permissions_provider.dart';
 import '../../../services/seed_data_service.dart';
 
 class ProjectListScreen extends ConsumerWidget {
@@ -373,7 +374,7 @@ class _ProjectCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final dateFormat = DateFormat('MMM d, yyyy');
-    final isAdmin = ref.watch(isAdminProvider);
+    final canViewAllProjects = ref.watch(canViewAllProjectsProvider);
     final currentUser = ref.watch(currentUserProvider);
     final isOwnProject = currentUser?.uid == project.userId;
 
@@ -465,8 +466,8 @@ class _ProjectCard extends ConsumerWidget {
                   ),
                 ],
               ),
-              // Admin: Show owner info for projects from other users
-              if (isAdmin && !isOwnProject && project.userId != null) ...[
+              // Show owner info for projects from other users (when user can view all)
+              if (canViewAllProjects && !isOwnProject && project.userId != null) ...[
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

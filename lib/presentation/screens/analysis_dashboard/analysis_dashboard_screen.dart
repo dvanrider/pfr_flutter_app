@@ -69,6 +69,12 @@ class _DashboardScaffold extends ConsumerWidget {
           onPressed: () => context.go('/projects'),
         ),
         actions: [
+          if (ref.watch(canViewExecutiveDashboardProvider))
+            IconButton(
+              icon: const Icon(Icons.dashboard),
+              onPressed: () => context.go('/executive'),
+              tooltip: 'Executive Dashboard',
+            ),
           IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: () => context.go('/help/metrics'),

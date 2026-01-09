@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/financial_constants.dart';
 import '../data/models/project.dart';
 import 'auth_providers.dart';
+import 'role_permissions_provider.dart';
 
 /// Firestore instance provider
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
@@ -251,19 +252,19 @@ final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
 });
 
 /// Provider that watches user's projects from Firestore
-/// Admins see all projects, regular users see only their own
+/// Users with "View All Projects" permission see all projects, others see only their own
 final projectsStreamProvider = StreamProvider<List<Project>>((ref) {
   final repository = ref.watch(projectRepositoryProvider);
   final user = ref.watch(currentUserProvider);
-  final isAdmin = ref.watch(isAdminProvider);
+  final canViewAll = ref.watch(canViewAllProjectsProvider);
 
   // If no user is logged in, return empty list
   if (user == null) {
     return Stream.value([]);
   }
 
-  // Admins see all projects
-  if (isAdmin) {
+  // Users with permission see all projects
+  if (canViewAll) {
     return repository.watchAllProjects();
   }
 

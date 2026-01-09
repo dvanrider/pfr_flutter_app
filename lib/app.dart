@@ -24,6 +24,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final appUser = ref.watch(currentAppUserProvider);
   final canViewExecDashboard = ref.watch(canViewExecutiveDashboardPermProvider);
+  final canViewAllProjects = ref.watch(canViewAllProjectsProvider);
 
   return GoRouter(
     initialLocation: '/',
@@ -33,6 +34,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggingIn = state.matchedLocation == '/login';
       final isGoingHome = state.matchedLocation == '/';
       final isGoingExecutive = state.matchedLocation == '/executive';
+      final isGoingAnalysis = state.matchedLocation.startsWith('/analysis');
 
       // If not logged in and not on login page, redirect to login
       if (!isLoggedIn && !isLoggingIn) {
@@ -59,6 +61,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Protect executive dashboard with permission check
       if (isGoingExecutive && !canViewExecDashboard) {
+        return '/';
+      }
+
+      // Protect analysis tools with viewAllProjects permission
+      if (isGoingAnalysis && !canViewAllProjects) {
         return '/';
       }
 

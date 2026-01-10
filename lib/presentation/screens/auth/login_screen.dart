@@ -69,6 +69,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           credential.user!.email ?? _emailController.text.trim(),
           _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : credential.user!.displayName,
         );
+
+        // Invalidate user providers to force refresh with updated role
+        ref.invalidate(currentAppUserProvider);
+        ref.invalidate(userProfileProvider);
+
+        // Wait for streams to update
+        await Future.delayed(const Duration(milliseconds: 200));
       }
 
       if (mounted) {
@@ -406,6 +413,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           credential.user!.email ?? email,
           credential.user!.displayName,
         );
+
+        // Invalidate user providers to force refresh with updated role
+        ref.invalidate(currentAppUserProvider);
+        ref.invalidate(userProfileProvider);
+
+        // Wait for streams to update
+        await Future.delayed(const Duration(milliseconds: 200));
       }
 
       if (mounted) {

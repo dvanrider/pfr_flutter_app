@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Firebase Auth instance provider
@@ -218,19 +217,8 @@ class UserProfileRepository {
   /// Watch user profile
   Stream<UserProfile?> watchProfile(String userId) {
     return _usersCollection.doc(userId).snapshots().map((doc) {
-      if (!doc.exists) {
-        debugPrint('watchProfile: Document does not exist for userId: $userId');
-        return null;
-      }
-      try {
-        final profile = UserProfile.fromFirestore(doc);
-        debugPrint('watchProfile: Loaded profile for $userId with role: ${profile.role.name}');
-        return profile;
-      } catch (e) {
-        debugPrint('watchProfile: Error parsing profile for $userId: $e');
-        debugPrint('watchProfile: Raw data: ${doc.data()}');
-        return null;
-      }
+      if (!doc.exists) return null;
+      return UserProfile.fromFirestore(doc);
     });
   }
 

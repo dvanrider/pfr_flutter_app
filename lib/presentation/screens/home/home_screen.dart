@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../providers/project_providers.dart';
 import '../../../providers/auth_providers.dart';
-import '../../../providers/user_management_providers.dart';
 import '../../../providers/role_permissions_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../widgets/notifications_panel.dart';
@@ -20,7 +19,6 @@ class HomeScreen extends ConsumerWidget {
 
     final user = ref.watch(currentUserProvider);
     final isAdmin = ref.watch(isAdminProvider);
-    final isAppAdmin = ref.watch(isAppAdminProvider);
     final userProfile = ref.watch(userProfileProvider).valueOrNull;
     final canManageUsers = ref.watch(canManageUsersProvider);
     final canConfigureSystem = ref.watch(canConfigureSystemProvider);
@@ -33,31 +31,10 @@ class HomeScreen extends ConsumerWidget {
         userProfile?.role == UserRole.executive ||
         canViewAllProjects;
 
-    // DEBUG: Print role info to console
-    if (user != null) {
-      debugPrint('═══════════════════════════════════════════');
-      debugPrint('DEBUG ROLE INFO:');
-      debugPrint('  Auth UID: ${user.uid}');
-      debugPrint('  isAdmin (auth): $isAdmin');
-      debugPrint('  isAppAdmin (app): $isAppAdmin');
-      debugPrint('  Profile Loaded: ${userProfile != null}');
-      debugPrint('  Profile Role: ${userProfile?.role.name ?? "NULL"}');
-      debugPrint('  Profile Email: ${userProfile?.email ?? "NULL"}');
-      debugPrint('═══════════════════════════════════════════');
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Project Funding Request'),
         actions: [
-          // Debug role indicator
-          if (user != null)
-            _RoleDebugIndicator(
-              uid: user.uid,
-              isAdmin: isAdmin,
-              isAppAdmin: isAppAdmin,
-              userProfile: userProfile,
-            ),
           // Notifications
           if (user != null) const NotificationIconButton(),
           // Theme toggle
@@ -452,144 +429,6 @@ class _RecentProjectsList extends ConsumerWidget {
       },
       loading: () => const Card(child: Center(child: CircularProgressIndicator())),
       error: (e, _) => Card(child: Center(child: Text('Error: $e'))),
-    );
-  }
-}
-
-/// Debug indicator showing user role information
-class _RoleDebugIndicator extends StatelessWidget {
-  final String uid;
-  final bool isAdmin;
-  final bool isAppAdmin;
-  final UserProfile? userProfile;
-
-  const _RoleDebugIndicator({
-    required this.uid,
-    required this.isAdmin,
-    required this.isAppAdmin,
-    required this.userProfile,
-  });
-
-  void _showDebugDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.bug_report, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Role Debug Info'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DebugRow(label: 'Firebase Auth UID', value: uid),
-            const Divider(),
-            _DebugRow(label: 'isAdmin (auth)', value: isAdmin.toString()),
-            _DebugRow(label: 'isAppAdmin (app)', value: isAppAdmin.toString()),
-            const Divider(),
-            _DebugRow(
-              label: 'Profile Loaded',
-              value: userProfile != null ? 'YES' : 'NO - Check Firestore!',
-              isError: userProfile == null,
-            ),
-            if (userProfile != null) ...[
-              _DebugRow(label: 'Profile Role', value: userProfile!.role.name),
-              _DebugRow(label: 'Profile Email', value: userProfile!.email),
-            ],
-            const Divider(),
-            const Text(
-              'Firestore document ID must match the Auth UID exactly!',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            SelectableText(
-              'Expected doc path: users/$uid',
-              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showDebugDialog(context),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isAppAdmin ? Colors.green : Colors.orange,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isAppAdmin ? Icons.verified : Icons.bug_report,
-              size: 14,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              userProfile?.role.name.toUpperCase() ?? 'NO ROLE',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DebugRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isError;
-
-  const _DebugRow({
-    required this.label,
-    required this.value,
-    this.isError = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
-          Expanded(
-            child: SelectableText(
-              value,
-              style: TextStyle(
-                fontSize: 12,
-                color: isError ? Colors.red : null,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

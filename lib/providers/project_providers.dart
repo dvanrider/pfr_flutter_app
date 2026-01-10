@@ -292,12 +292,26 @@ final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
 final projectsStreamProvider = StreamProvider<List<Project>>((ref) {
   final repository = ref.watch(projectRepositoryProvider);
   final user = ref.watch(currentUserProvider);
-  final canViewAll = ref.watch(canViewAllProjectsProvider);
+  final userProfileAsync = ref.watch(userProfileProvider);
 
   // If no user is logged in, return empty list
   if (user == null) {
     return Stream.value([]);
   }
+
+  // Wait for user profile to load before deciding which query to use
+  final userProfile = userProfileAsync.valueOrNull;
+  if (userProfile == null) {
+    // Still loading - return empty stream that will be replaced when profile loads
+    return Stream.value([]);
+  }
+
+  // Check if user can view all projects based on their role
+  // SuperUser, Admin, and Executive can always view all projects
+  final canViewAll = userProfile.role == UserRole.superUser ||
+      userProfile.role == UserRole.admin ||
+      userProfile.role == UserRole.executive ||
+      ref.watch(canViewAllProjectsProvider);
 
   // Users with permission see all projects
   if (canViewAll) {

@@ -246,6 +246,16 @@ class _ProjectInputScreenState extends ConsumerState<ProjectInputScreen> {
         );
         context.go('/projects');
       }
+    } on DuplicatePfrNumberException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

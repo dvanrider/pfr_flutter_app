@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/constants/financial_constants.dart';
 import '../../../data/models/project.dart';
 import '../../../providers/project_providers.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/role_permissions_provider.dart';
-import '../../../services/seed_data_service.dart';
 import '../../widgets/excel_import_export.dart';
 
 class ProjectListScreen extends ConsumerWidget {
@@ -28,55 +26,6 @@ class ProjectListScreen extends ConsumerWidget {
           onPressed: () => context.go('/'),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.dataset),
-            tooltip: 'Load Sample Data',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Load Sample Data'),
-                  content: const Text('This will add 5 sample projects with financial data. Continue?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('Load Data'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed == true && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Loading sample data...')),
-                );
-                try {
-                  final seedService = SeedDataService(FirebaseFirestore.instance);
-                  await seedService.forceSeedSampleData();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('5 sample projects loaded successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error loading data: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              }
-            },
-          ),
           const _ExcelActionsWrapper(),
         ],
       ),

@@ -6,6 +6,16 @@ import '../data/models/project.dart';
 import 'auth_providers.dart';
 import 'role_permissions_provider.dart';
 
+/// Exception thrown when attempting to create/update a project with a duplicate PFR number
+class DuplicatePfrNumberException implements Exception {
+  final String pfrNumber;
+
+  DuplicatePfrNumberException(this.pfrNumber);
+
+  @override
+  String toString() => 'A project with PFR number "$pfrNumber" already exists.';
+}
+
 /// Firestore instance provider
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
@@ -222,8 +232,29 @@ class ProjectRepository {
     return _fromFirestore(doc);
   }
 
+  /// Check if a PFR number already exists (optionally excluding a specific project ID)
+  Future<bool> pfrNumberExists(String pfrNumber, {String? excludeProjectId}) async {
+    final query = await _projectsCollection
+        .where('pfrNumber', isEqualTo: pfrNumber)
+        .get();
+
+    if (query.docs.isEmpty) return false;
+
+    // If excluding a project ID (for updates), check if the match is a different project
+    if (excludeProjectId != null) {
+      return query.docs.any((doc) => doc.id != excludeProjectId);
+    }
+
+    return true;
+  }
+
   /// Create a new project
   Future<Project> createProject(Project project) async {
+    // Check for duplicate PFR number
+    if (await pfrNumberExists(project.pfrNumber)) {
+      throw DuplicatePfrNumberException(project.pfrNumber);
+    }
+
     final now = DateTime.now();
     final newProject = project.copyWith(
       createdAt: now,
@@ -235,6 +266,11 @@ class ProjectRepository {
 
   /// Update an existing project
   Future<void> updateProject(Project project) async {
+    // Check for duplicate PFR number (excluding this project)
+    if (await pfrNumberExists(project.pfrNumber, excludeProjectId: project.id)) {
+      throw DuplicatePfrNumberException(project.pfrNumber);
+    }
+
     final updated = project.copyWith(updatedAt: DateTime.now());
     await _projectsCollection.doc(project.id).update(_toFirestore(updated));
   }

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/financial_constants.dart';
+import '../../../services/seed_data_service.dart';
 import '../../../data/models/app_user.dart';
 import '../../../data/models/system_config.dart';
 import '../../../data/models/project.dart';
@@ -1877,6 +1879,33 @@ class _SystemConfigTabState extends ConsumerState<_SystemConfigTab> {
                   ),
                 ),
               ),
+
+              const SizedBox(height: 24),
+
+              // Data Management
+              _ConfigSection(
+                title: 'Data Management',
+                icon: Icons.storage,
+                children: [
+                  _DataManagementRow(
+                    label: 'Load Sample Data',
+                    description: 'Add 5 sample projects with financial data for testing',
+                    icon: Icons.dataset,
+                    iconColor: Colors.orange,
+                    buttonLabel: 'Load Data',
+                    onAction: () => _loadSampleData(),
+                  ),
+                  _DataManagementRow(
+                    label: 'Delete All My Projects',
+                    description: 'Permanently remove all your projects and financial data',
+                    icon: Icons.delete_sweep,
+                    iconColor: Colors.red,
+                    buttonLabel: 'Delete All',
+                    isDestructive: true,
+                    onAction: () => _deleteAllProjects(),
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -1884,6 +1913,99 @@ class _SystemConfigTabState extends ConsumerState<_SystemConfigTab> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
     );
+  }
+
+  Future<void> _loadSampleData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Load Sample Data'),
+        content: const Text(
+          'This will add 5 sample projects with financial data (CapEx, OpEx, Benefits). Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Load Data'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final seedService = SeedDataService(FirebaseFirestore.instance);
+      await seedService.forceSeedSampleData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('5 sample projects loaded successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteAllProjects() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete All My Projects'),
+        content: const Text(
+          'This will permanently delete ALL your projects and their financial data. This action cannot be undone. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final seedService = SeedDataService(FirebaseFirestore.instance);
+      final deletedCount = await seedService.cleanupSeedData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$deletedCount project(s) deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _editHurdleRate(SystemConfig config, String userId) {
@@ -2070,6 +2192,70 @@ class _DropdownConfigRow extends StatelessWidget {
           Text('$activeCount active / $count total', style: TextStyle(color: Colors.grey[600])),
           const SizedBox(width: 16),
           IconButton(icon: const Icon(Icons.edit, size: 20), onPressed: onEdit),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataManagementRow extends StatelessWidget {
+  final String label;
+  final String description;
+  final IconData icon;
+  final Color iconColor;
+  final String buttonLabel;
+  final bool isDestructive;
+  final VoidCallback onAction;
+
+  const _DataManagementRow({
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.iconColor,
+    required this.buttonLabel,
+    this.isDestructive = false,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(description, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          isDestructive
+              ? OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                  onPressed: onAction,
+                  child: Text(buttonLabel),
+                )
+              : FilledButton(
+                  onPressed: onAction,
+                  child: Text(buttonLabel),
+                ),
         ],
       ),
     );

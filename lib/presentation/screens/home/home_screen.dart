@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../providers/project_providers.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/user_management_providers.dart';
 import '../../../providers/role_permissions_provider.dart';
 import '../../../providers/theme_provider.dart';
-import '../../../services/seed_data_service.dart';
 import '../../widgets/notifications_panel.dart';
 
 /// Home Screen - Main dashboard for PFR application
@@ -222,7 +220,6 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            _LoadSampleDataCard(),
             if (canViewAllProjects) ...[
               const SizedBox(height: 32),
               Text(
@@ -443,124 +440,6 @@ class _RecentProjectsList extends ConsumerWidget {
       },
       loading: () => const Card(child: Center(child: CircularProgressIndicator())),
       error: (e, _) => Card(child: Center(child: Text('Error: $e'))),
-    );
-  }
-}
-
-class _LoadSampleDataCard extends StatefulWidget {
-  const _LoadSampleDataCard();
-
-  @override
-  State<_LoadSampleDataCard> createState() => _LoadSampleDataCardState();
-}
-
-class _LoadSampleDataCardState extends State<_LoadSampleDataCard> {
-  bool _isLoading = false;
-
-  Future<void> _loadSampleData() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Load Sample Data'),
-        content: const Text(
-          'This will add 5 sample projects with financial data (CapEx, OpEx, Benefits). Continue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Load Data'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final seedService = SeedDataService(FirebaseFirestore.instance);
-      await seedService.forceSeedSampleData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('5 sample projects loaded successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 10),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.orange[50],
-      child: InkWell(
-        onTap: _isLoading ? null : _loadSampleData,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(Icons.dataset, color: Colors.orange[800], size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Load Sample Data',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Add 5 sample projects with financial data for testing',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

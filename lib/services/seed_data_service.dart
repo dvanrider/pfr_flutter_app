@@ -26,6 +26,41 @@ class SeedDataService {
     await _seedProjects();
   }
 
+  /// Delete all seed data (all projects and their financial data for the current user)
+  Future<int> cleanupSeedData() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return 0;
+
+    // Get all projects for the current user
+    final projectsQuery = await _firestore
+        .collection('projects')
+        .where('userId', isEqualTo: userId)
+        .get();
+
+    int deletedCount = 0;
+
+    for (final projectDoc in projectsQuery.docs) {
+      // Delete subcollections first (capex, opex, benefits)
+      await _deleteSubcollection(projectDoc.reference, 'capex');
+      await _deleteSubcollection(projectDoc.reference, 'opex');
+      await _deleteSubcollection(projectDoc.reference, 'benefits');
+
+      // Delete the project document
+      await projectDoc.reference.delete();
+      deletedCount++;
+    }
+
+    return deletedCount;
+  }
+
+  /// Helper to delete all documents in a subcollection
+  Future<void> _deleteSubcollection(DocumentReference parentDoc, String subcollectionName) async {
+    final subcollection = await parentDoc.collection(subcollectionName).get();
+    for (final doc in subcollection.docs) {
+      await doc.reference.delete();
+    }
+  }
+
   Future<void> _seedProjects() async {
     // Get current user ID
     final userId = FirebaseAuth.instance.currentUser?.uid;

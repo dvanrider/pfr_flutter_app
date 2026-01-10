@@ -82,9 +82,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = _getErrorMessage(e);
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = _getErrorMessage(e);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -426,9 +428,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = _getErrorMessage(e);
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = _getErrorMessage(e);
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {

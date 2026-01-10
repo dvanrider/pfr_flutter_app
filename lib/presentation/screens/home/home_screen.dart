@@ -27,6 +27,12 @@ class HomeScreen extends ConsumerWidget {
     final hasAdminAccess = canManageUsers || canConfigureSystem;
     final canViewAllProjects = ref.watch(canViewAllProjectsProvider);
 
+    // Check if user can see analysis tools based on role
+    final canSeeAnalysisTools = userProfile?.role == UserRole.superUser ||
+        userProfile?.role == UserRole.admin ||
+        userProfile?.role == UserRole.executive ||
+        canViewAllProjects;
+
     // DEBUG: Print role info to console
     if (user != null) {
       debugPrint('═══════════════════════════════════════════');
@@ -226,7 +232,7 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            if (canViewAllProjects) ...[
+            if (canSeeAnalysisTools) ...[
               const SizedBox(height: 32),
               Text(
                 'Analysis Tools',

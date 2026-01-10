@@ -71,6 +71,12 @@ class ExecutiveDashboardScreen extends ConsumerWidget {
                 if (value == 'signout') {
                   final authRepo = ref.read(authRepositoryProvider);
                   await authRepo.signOut();
+                  // Invalidate cached providers to ensure fresh data on next login
+                  ref.invalidate(userProfileProvider);
+                  ref.invalidate(currentUserProvider);
+                  if (context.mounted) {
+                    context.go('/login');
+                  }
                 } else if (value == 'home') {
                   context.go('/');
                 }

@@ -389,6 +389,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authRepo = ref.read(authRepositoryProvider);
       final userRepo = ref.read(userManagementRepositoryProvider);
 
+      // Sign out first to clear any cached user data
+      await authRepo.signOut();
+
+      // Small delay to ensure auth state is cleared
+      await Future.delayed(const Duration(milliseconds: 100));
+
       final credential = await authRepo.signInWithEmail(
         email: email,
         password: 'Test123!',

@@ -490,7 +490,14 @@ class _RoleManagementTab extends ConsumerWidget {
                   ],
                 ),
               ),
-              // Initialize defaults button
+              // Initialize missing roles button
+              OutlinedButton.icon(
+                onPressed: () => _initializeMissing(context, ref),
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Initialize Missing'),
+              ),
+              const SizedBox(width: 8),
+              // Reset all defaults button
               OutlinedButton.icon(
                 onPressed: () => _initializeDefaults(context, ref),
                 icon: const Icon(Icons.restore),
@@ -597,6 +604,30 @@ class _RoleManagementTab extends ConsumerWidget {
             ),
           );
         }
+      }
+    }
+  }
+
+  void _initializeMissing(BuildContext context, WidgetRef ref) async {
+    try {
+      final repository = ref.read(rolePermissionsRepositoryProvider);
+      await repository.initializeDefaults();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Missing role permissions initialized'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error initializing permissions: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

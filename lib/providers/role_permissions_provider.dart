@@ -121,6 +121,27 @@ final hasPermissionProvider = Provider.family<bool, Permission>((ref, permission
         data: (profile) {
           if (profile == null) return false;
 
+          // Safety net: SuperUser and Admin always have their essential permissions
+          // This prevents lockout if Firestore permissions are corrupted
+          if (profile.role == UserRole.superUser) {
+            return true; // SuperUser always has all permissions
+          }
+          if (profile.role == UserRole.admin) {
+            // Admin always has these critical permissions
+            if (permission == Permission.manageUsers ||
+                permission == Permission.systemConfiguration ||
+                permission == Permission.viewAllProjects) {
+              return true;
+            }
+          }
+          if (profile.role == UserRole.executive) {
+            // Executive always has these permissions
+            if (permission == Permission.viewAllProjects ||
+                permission == Permission.viewExecutiveDashboard) {
+              return true;
+            }
+          }
+
           return allPermsAsync.whenOrNull(
                 data: (allPerms) {
                   final rolePerms = allPerms[profile.role];

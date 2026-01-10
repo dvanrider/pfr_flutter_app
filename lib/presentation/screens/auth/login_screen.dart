@@ -325,6 +325,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ],
                       ),
+
+                      // Test User Quick Login Section
+                      if (_isLogin) ...[
+                        const SizedBox(height: 24),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Quick Login (Test Users)',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            _QuickLoginChip(
+                              label: 'Executive',
+                              color: Colors.deepPurple,
+                              onTap: () => _quickLogin('exec@example.com'),
+                            ),
+                            _QuickLoginChip(
+                              label: 'Super User',
+                              color: Colors.red,
+                              onTap: () => _quickLogin('su@example.com'),
+                            ),
+                            _QuickLoginChip(
+                              label: 'Requester',
+                              color: Colors.green,
+                              onTap: () => _quickLogin('req@example.com'),
+                            ),
+                            _QuickLoginChip(
+                              label: 'Approver',
+                              color: Colors.blue,
+                              onTap: () => _quickLogin('approve@example.com'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -333,6 +376,71 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _quickLogin(String email) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final userRepo = ref.read(userManagementRepositoryProvider);
+
+      final credential = await authRepo.signInWithEmail(
+        email: email,
+        password: 'Test123!',
+      );
+
+      if (credential.user != null) {
+        await userRepo.ensureUserExists(
+          credential.user!.uid,
+          credential.user!.email ?? email,
+          credential.user!.displayName,
+        );
+      }
+
+      if (mounted) {
+        context.go('/');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = _getErrorMessage(e);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+}
+
+class _QuickLoginChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickLoginChip({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: CircleAvatar(
+        backgroundColor: color,
+        radius: 10,
+        child: Icon(Icons.person, size: 12, color: Colors.white),
+      ),
+      label: Text(label),
+      onPressed: onTap,
+      side: BorderSide(color: color.withValues(alpha: 0.3)),
     );
   }
 }

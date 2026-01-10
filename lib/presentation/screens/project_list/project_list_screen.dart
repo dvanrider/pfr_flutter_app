@@ -10,6 +10,7 @@ import '../../../providers/project_providers.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/role_permissions_provider.dart';
 import '../../../services/seed_data_service.dart';
+import '../../widgets/excel_import_export.dart';
 
 class ProjectListScreen extends ConsumerWidget {
   const ProjectListScreen({super.key});
@@ -76,6 +77,7 @@ class ProjectListScreen extends ConsumerWidget {
               }
             },
           ),
+          const _ExcelActionsWrapper(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -682,5 +684,19 @@ class _DeleteButton extends ConsumerWidget {
         }
       }
     }
+  }
+}
+
+class _ExcelActionsWrapper extends ConsumerWidget {
+  const _ExcelActionsWrapper();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projectsAsync = ref.watch(filteredProjectsProvider);
+
+    return projectsAsync.maybeWhen(
+      data: (projects) => ExcelToolbar(projects: projects),
+      orElse: () => const SizedBox.shrink(),
+    );
   }
 }

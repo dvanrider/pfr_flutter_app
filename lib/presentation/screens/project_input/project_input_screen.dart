@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/financial_constants.dart';
 import '../../../data/models/project.dart';
+import '../../../data/models/project_template.dart';
 import '../../../providers/project_providers.dart';
 import '../../../providers/auth_providers.dart';
+import '../../widgets/template_selector.dart';
 
 class ProjectInputScreen extends ConsumerStatefulWidget {
   final String? projectId;
@@ -23,6 +25,7 @@ class _ProjectInputScreenState extends ConsumerState<ProjectInputScreen> {
   bool _isLoading = false;
   bool _isEditing = false;
   Project? _existingProject;
+  ProjectTemplate? _selectedTemplate;
 
   final List<String> _segments = ['WynD', 'VOI', 'Exchange', 'Corporate'];
   final List<String> _businessUnitGroups = ['Technology', 'Operations', 'Finance', 'Marketing', 'HR', 'Legal'];
@@ -37,6 +40,52 @@ class _ProjectInputScreenState extends ConsumerState<ProjectInputScreen> {
     _initForm();
     if (_isEditing) {
       _loadProject();
+    } else {
+      // For new projects, show template selector after first frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showTemplateSelector();
+      });
+    }
+  }
+
+  Future<void> _showTemplateSelector() async {
+    final template = await TemplateSelector.show(context);
+    if (template != null && mounted) {
+      setState(() => _selectedTemplate = template);
+      _applyTemplate(template);
+    }
+  }
+
+  void _applyTemplate(ProjectTemplate template) {
+    final now = DateTime.now();
+    final endDate = now.add(Duration(days: template.defaultDurationMonths * 30));
+
+    form.patchValue({
+      if (template.segment != null) 'segment': template.segment,
+      if (template.businessUnitGroup != null) 'businessUnitGroup': template.businessUnitGroup,
+      if (template.businessUnit != null) 'businessUnit': template.businessUnit,
+      if (template.icCategory != null) 'icCategory': template.icCategory,
+      if (template.descriptionTemplate != null) 'description': template.descriptionTemplate,
+      if (template.rationaleTemplate != null) 'rationale': template.rationaleTemplate,
+      'currency': template.currency,
+      'projectEndDate': endDate,
+      'isCapExBudgeted': template.isCapExBudgeted,
+      'isOpExBudgeted': template.isOpExBudgeted,
+      'replacesCurrentAssets': template.replacesCurrentAssets,
+      'isHoaReimbursed': template.isHoaReimbursed,
+      'hasGuaranteedMarketing': template.hasGuaranteedMarketing,
+      'hasLongTermCommitment': template.hasLongTermCommitment,
+      'hasRealEstateLease': template.hasRealEstateLease,
+      'hasEquipmentLease': template.hasEquipmentLease,
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Applied template: ${template.name}'),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 
@@ -218,6 +267,16 @@ class _ProjectInputScreenState extends ConsumerState<ProjectInputScreen> {
           onPressed: () => context.go('/projects'),
         ),
         actions: [
+          // Template selector button (only for new projects)
+          if (!_isEditing)
+            TextButton.icon(
+              onPressed: _showTemplateSelector,
+              icon: const Icon(Icons.description_outlined, color: Colors.white70),
+              label: Text(
+                _selectedTemplate?.name ?? 'Choose Template',
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ),
           if (_isLoading)
             const Center(child: Padding(
               padding: EdgeInsets.all(16),
@@ -240,6 +299,11 @@ class _ProjectInputScreenState extends ConsumerState<ProjectInputScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Template banner (only for new projects with a template selected)
+                    if (!_isEditing && _selectedTemplate != null) ...[
+                      _buildTemplateBanner(),
+                      const SizedBox(height: 24),
+                    ],
                     _buildSectionHeader('Basic Information', Icons.info_outline),
                     _buildBasicInfoSection(),
                     const SizedBox(height: 32),
@@ -269,6 +333,55 @@ class _ProjectInputScreenState extends ConsumerState<ProjectInputScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildTemplateBanner() {
+    final template = _selectedTemplate!;
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.primaryContainer,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.description,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Using template: ${template.name}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (template.description != null)
+                  Text(
+                    template.description!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _showTemplateSelector,
+            child: const Text('Change'),
+          ),
+        ],
+      ),
     );
   }
 

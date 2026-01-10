@@ -53,5 +53,45 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
       }
     }
+
+    // Comments collection - all authenticated can read/create, owners can update/delete
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() &&
+        (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // Notifications collection - users can only access their own notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() &&
+        request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+        request.auth.uid == resource.data.userId;
+      allow delete: if isAuthenticated() &&
+        (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // Attachments collection - all authenticated can read/create, owners can delete
+    match /attachments/{attachmentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+        (request.auth.uid == resource.data.uploadedByUserId || isAdmin());
+      allow delete: if isAuthenticated() &&
+        (request.auth.uid == resource.data.uploadedByUserId || isAdmin());
+    }
+
+    // Project templates collection - all authenticated can read, admins can write
+    match /project_templates/{templateId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+        (request.auth.uid == resource.data.createdByUserId || isAdmin());
+      allow delete: if isAuthenticated() &&
+        (!resource.data.isSystemTemplate &&
+         (request.auth.uid == resource.data.createdByUserId || isAdmin()));
+    }
   }
 }

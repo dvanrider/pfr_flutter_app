@@ -46,6 +46,8 @@ class TrainingScreen extends StatelessWidget {
             _buildStep4Card(theme),
             const SizedBox(height: 16),
             _buildStep5Card(theme),
+            const SizedBox(height: 16),
+            _buildStep6Card(theme),
             const SizedBox(height: 24),
             _buildTipsCard(theme),
             const SizedBox(height: 48),
@@ -115,6 +117,7 @@ class TrainingScreen extends StatelessWidget {
                 _buildFeatureChip('PDF Export', Icons.picture_as_pdf),
                 _buildFeatureChip('Multi-Year Projections', Icons.timeline),
                 _buildFeatureChip('Cost Tracking', Icons.account_balance_wallet),
+                _buildFeatureChip('Budget vs Actuals', Icons.compare_arrows),
               ],
             ),
           ],
@@ -215,6 +218,23 @@ class TrainingScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildStep6Card(ThemeData theme) {
+    return _StepCard(
+      stepNumber: 6,
+      title: 'Track Budget vs Actuals',
+      description: 'Monitor actual spending against budgeted amounts.',
+      theme: theme,
+      details: const [
+        'Navigate to Financials and select the "Actuals" tab',
+        'Enter actual spend amounts for CapEx items as they occur',
+        'Enter actual OpEx costs for each period',
+        'Record realized benefits to track against projections',
+        'View variance analysis on the Analysis Dashboard',
+      ],
+      tip: 'Track actuals regularly (monthly or quarterly) to identify variances early and adjust plans accordingly.',
+    );
+  }
+
   Widget _buildTipsCard(ThemeData theme) {
     return Card(
       color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.3),
@@ -241,6 +261,7 @@ class TrainingScreen extends StatelessWidget {
             _buildTipItem('Consider all years of the 6-year projection period'),
             _buildTipItem('Review similar past projects for benchmarking'),
             _buildTipItem('Get finance team input on discount rates and assumptions'),
+            _buildTipItem('Update actuals regularly to catch variances early - green means favorable, red means over budget'),
           ],
         ),
       ),

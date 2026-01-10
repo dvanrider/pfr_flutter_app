@@ -22,6 +22,7 @@ class CapExRepository {
       category: _parseCapExCategory(data['category'] ?? ''),
       description: data['description'] ?? '',
       yearlyAmounts: _parseYearlyAmounts(data['yearlyAmounts']),
+      actualYearlyAmounts: _parseYearlyAmounts(data['actualYearlyAmounts']),
       usefulLifeMonths: data['usefulLifeMonths'] ?? 36,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
@@ -33,6 +34,7 @@ class CapExRepository {
       'category': item.category.name,
       'description': item.description,
       'yearlyAmounts': item.yearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
+      'actualYearlyAmounts': item.actualYearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
       'usefulLifeMonths': item.usefulLifeMonths,
       'createdAt': Timestamp.fromDate(item.createdAt),
       'updatedAt': Timestamp.fromDate(item.updatedAt),
@@ -79,6 +81,7 @@ class OpExRepository {
       category: _parseOpExCategory(data['category'] ?? ''),
       description: data['description'] ?? '',
       yearlyAmounts: _parseYearlyAmounts(data['yearlyAmounts']),
+      actualYearlyAmounts: _parseYearlyAmounts(data['actualYearlyAmounts']),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
@@ -89,6 +92,7 @@ class OpExRepository {
       'category': item.category.name,
       'description': item.description,
       'yearlyAmounts': item.yearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
+      'actualYearlyAmounts': item.actualYearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
       'createdAt': Timestamp.fromDate(item.createdAt),
       'updatedAt': Timestamp.fromDate(item.updatedAt),
     };
@@ -135,6 +139,7 @@ class BenefitRepository {
       businessUnit: _parseBusinessUnit(data['businessUnit'] ?? ''),
       description: data['description'] ?? '',
       yearlyAmounts: _parseYearlyAmounts(data['yearlyAmounts']),
+      actualYearlyAmounts: _parseYearlyAmounts(data['actualYearlyAmounts']),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
@@ -146,6 +151,7 @@ class BenefitRepository {
       'businessUnit': item.businessUnit.name,
       'description': item.description,
       'yearlyAmounts': item.yearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
+      'actualYearlyAmounts': item.actualYearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
       'createdAt': Timestamp.fromDate(item.createdAt),
       'updatedAt': Timestamp.fromDate(item.updatedAt),
     };

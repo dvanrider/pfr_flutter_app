@@ -11,6 +11,8 @@ import '../../../data/models/project.dart';
 import '../../../data/models/financial_items.dart';
 import '../../../providers/providers.dart';
 import '../../../services/pdf_export_service.dart';
+import '../../widgets/comments_section.dart';
+import '../../widgets/attachments_section.dart';
 
 class AnalysisDashboardScreen extends ConsumerWidget {
   final String projectId;
@@ -170,10 +172,64 @@ class _DashboardBody extends StatelessWidget {
           if (financials.hasData) ...[
             const SizedBox(height: 24),
             _YearlyBreakdownTable(financials: financials, startYear: project.startYear),
+            if (financials.hasActualsData) ...[
+              const SizedBox(height: 24),
+              _VarianceSummarySection(financials: financials, startYear: project.startYear),
+            ],
           ],
+          const SizedBox(height: 24),
+          // Collaboration Section
+          _CollaborationSection(projectId: project.id, projectName: project.projectName),
           const SizedBox(height: 48),
         ],
       ),
+    );
+  }
+}
+
+/// Collaboration section with Comments and Attachments
+class _CollaborationSection extends StatelessWidget {
+  final String projectId;
+  final String projectName;
+
+  const _CollaborationSection({
+    required this.projectId,
+    required this.projectName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Collaboration',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: CommentsSection(
+                projectId: projectId,
+                projectName: projectName,
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              flex: 2,
+              child: AttachmentsSection(
+                projectId: projectId,
+                projectName: projectName,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -1834,6 +1890,227 @@ class _YearlyBreakdownTable extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, color: color),
         )),
       ],
+    );
+  }
+}
+
+class _VarianceSummarySection extends StatelessWidget {
+  final ProjectFinancials financials;
+  final int startYear;
+
+  const _VarianceSummarySection({required this.financials, required this.startYear});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.compare_arrows, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Budget vs Actuals',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Variance Summary Cards
+            Row(
+              children: [
+                Expanded(
+                  child: _VarianceCard(
+                    title: 'Cost Variance',
+                    budget: financials.totalCosts,
+                    actual: financials.totalActualCosts,
+                    variance: financials.totalCostVariance,
+                    isCost: true,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _VarianceCard(
+                    title: 'Benefit Variance',
+                    budget: financials.totalBenefits,
+                    actual: financials.totalActualBenefits,
+                    variance: financials.totalBenefitVariance,
+                    isCost: false,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Variance Detail Table
+            Text(
+              'Yearly Variance Detail',
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
+                columnSpacing: 16,
+                columns: [
+                  const DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
+                  const DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
+                  ...List.generate(
+                    FinancialConstants.projectionYears,
+                    (i) => DataColumn(
+                      label: Text('${startYear + i}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      numeric: true,
+                    ),
+                  ),
+                  const DataColumn(label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                ],
+                rows: [
+                  _buildCategoryRow('CapEx', 'Budget', financials.yearlyCapEx, currencyFormat),
+                  _buildCategoryRow('', 'Actual', financials.yearlyActualCapEx, currencyFormat),
+                  _buildVarianceRow('', 'Variance', financials.yearlyCapEx, financials.yearlyActualCapEx, currencyFormat, isCost: true),
+                  _buildCategoryRow('OpEx', 'Budget', financials.yearlyOpEx, currencyFormat),
+                  _buildCategoryRow('', 'Actual', financials.yearlyActualOpEx, currencyFormat),
+                  _buildVarianceRow('', 'Variance', financials.yearlyOpEx, financials.yearlyActualOpEx, currencyFormat, isCost: true),
+                  _buildCategoryRow('Benefits', 'Budget', financials.yearlyBenefits, currencyFormat),
+                  _buildCategoryRow('', 'Actual', financials.yearlyActualBenefits, currencyFormat),
+                  _buildVarianceRow('', 'Variance', financials.yearlyBenefits, financials.yearlyActualBenefits, currencyFormat, isCost: false),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  DataRow _buildCategoryRow(String category, String type, List<double> values, NumberFormat format) {
+    final total = values.fold(0.0, (sum, v) => sum + v);
+    return DataRow(cells: [
+      DataCell(Text(category, style: TextStyle(fontWeight: category.isNotEmpty ? FontWeight.bold : null))),
+      DataCell(Text(type)),
+      ...values.map((v) => DataCell(Text(format.format(v)))),
+      DataCell(Text(format.format(total), style: const TextStyle(fontWeight: FontWeight.bold))),
+    ]);
+  }
+
+  DataRow _buildVarianceRow(String category, String type, List<double> budgets, List<double> actuals,
+      NumberFormat format, {required bool isCost}) {
+    final variances = List.generate(budgets.length, (i) {
+      return isCost ? (budgets[i] - actuals[i]) : (actuals[i] - budgets[i]);
+    });
+    final totalVariance = variances.fold(0.0, (sum, v) => sum + v);
+
+    return DataRow(cells: [
+      DataCell(Text(category)),
+      DataCell(Text(type, style: const TextStyle(fontStyle: FontStyle.italic))),
+      ...variances.map((v) => DataCell(Text(
+        '${v >= 0 ? '+' : ''}${format.format(v)}',
+        style: TextStyle(
+          color: v >= 0 ? Colors.green[700] : Colors.red[700],
+          fontWeight: FontWeight.w500,
+        ),
+      ))),
+      DataCell(Text(
+        '${totalVariance >= 0 ? '+' : ''}${format.format(totalVariance)}',
+        style: TextStyle(
+          color: totalVariance >= 0 ? Colors.green[700] : Colors.red[700],
+          fontWeight: FontWeight.bold,
+        ),
+      )),
+    ]);
+  }
+}
+
+class _VarianceCard extends StatelessWidget {
+  final String title;
+  final double budget;
+  final double actual;
+  final double variance;
+  final bool isCost;
+
+  const _VarianceCard({
+    required this.title,
+    required this.budget,
+    required this.actual,
+    required this.variance,
+    required this.isCost,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final variancePercent = budget > 0 ? (variance / budget * 100) : 0.0;
+    final isFavorable = variance >= 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isFavorable ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isFavorable ? Colors.green[300]! : Colors.red[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isFavorable ? Icons.trending_up : Icons.trending_down,
+                color: isFavorable ? Colors.green[700] : Colors.red[700],
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(title, style: Theme.of(context).textTheme.titleSmall),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Budget', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                  Text(currencyFormat.format(budget), style: const TextStyle(fontWeight: FontWeight.w500)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Actual', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                  Text(currencyFormat.format(actual), style: const TextStyle(fontWeight: FontWeight.w500)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('Variance', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                  Text(
+                    '${variance >= 0 ? '+' : ''}${currencyFormat.format(variance)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isFavorable ? Colors.green[700] : Colors.red[700],
+                    ),
+                  ),
+                  Text(
+                    '${variancePercent >= 0 ? '+' : ''}${variancePercent.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isFavorable ? Colors.green[600] : Colors.red[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

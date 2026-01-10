@@ -258,7 +258,7 @@ class _RiskAssessmentScreenState extends ConsumerState<RiskAssessmentScreen> {
                           return ListTile(
                             selected: isSelected,
                             selectedTileColor:
-                                Theme.of(context).primaryColor.withOpacity(0.1),
+                                Theme.of(context).primaryColor.withValues(alpha: 0.1),
                             leading: Icon(
                               Icons.folder,
                               color: isSelected
@@ -387,7 +387,7 @@ class _RiskAssessmentScreenState extends ConsumerState<RiskAssessmentScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedCategory,
+                  initialValue: selectedCategory,
                   decoration: const InputDecoration(labelText: 'Category'),
                   items: ['Technical', 'Project', 'Resource', 'External',
                           'Organizational', 'Financial']
@@ -400,7 +400,7 @@ class _RiskAssessmentScreenState extends ConsumerState<RiskAssessmentScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<RiskProbability>(
-                        value: selectedProbability,
+                        initialValue: selectedProbability,
                         decoration:
                             const InputDecoration(labelText: 'Probability'),
                         items: RiskProbability.values
@@ -414,7 +414,7 @@ class _RiskAssessmentScreenState extends ConsumerState<RiskAssessmentScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<RiskImpact>(
-                        value: selectedImpact,
+                        initialValue: selectedImpact,
                         decoration: const InputDecoration(labelText: 'Impact'),
                         items: RiskImpact.values
                             .map((i) => DropdownMenuItem(
@@ -798,7 +798,7 @@ class _RiskAssessmentBody extends StatelessWidget {
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
         const SizedBox(height: 4),
         DropdownButtonFormField<T>(
-          value: currentValue,
+          initialValue: currentValue,
           decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
           items: values.map((v) => DropdownMenuItem(value: v, child: Text(v is RiskProbability ? v.label : v is RiskImpact ? v.label : v.toString(), style: const TextStyle(fontSize: 13)))).toList(),
           onChanged: onChanged,

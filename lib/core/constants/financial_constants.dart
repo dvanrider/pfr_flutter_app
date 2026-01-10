@@ -146,3 +146,22 @@ enum MetricStatus {
 
   final String displayName;
 }
+
+/// Budget vs Actuals variance status
+enum VarianceStatus {
+  favorable('Favorable'),
+  unfavorable('Unfavorable'),
+  neutral('On Target');
+
+  const VarianceStatus(this.displayName);
+
+  final String displayName;
+
+  /// Get status based on variance amount and whether it's a cost or benefit
+  static VarianceStatus fromVariance(double variance, {bool isCost = true}) {
+    if (variance.abs() < 0.01) return VarianceStatus.neutral;
+    // For costs: positive variance (under-spend) is favorable
+    // For benefits: positive variance (exceeded target) is favorable
+    return variance > 0 ? VarianceStatus.favorable : VarianceStatus.unfavorable;
+  }
+}

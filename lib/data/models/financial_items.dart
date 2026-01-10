@@ -7,7 +7,8 @@ class CapExItem extends Equatable {
   final String projectId;
   final CapExCategory category;
   final String description;
-  final Map<int, double> yearlyAmounts; // year -> amount
+  final Map<int, double> yearlyAmounts; // year -> budgeted amount
+  final Map<int, double> actualYearlyAmounts; // year -> actual amount
   final int usefulLifeMonths;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -18,6 +19,7 @@ class CapExItem extends Equatable {
     required this.category,
     required this.description,
     required this.yearlyAmounts,
+    this.actualYearlyAmounts = const {},
     required this.usefulLifeMonths,
     required this.createdAt,
     required this.updatedAt,
@@ -25,12 +27,26 @@ class CapExItem extends Equatable {
 
   double get totalAmount => yearlyAmounts.values.fold(0.0, (sum, v) => sum + v);
 
+  double get totalActualAmount => actualYearlyAmounts.values.fold(0.0, (sum, v) => sum + v);
+
+  /// Variance = Budget - Actual (positive = under-spend = favorable for costs)
+  double get totalVariance => totalAmount - totalActualAmount;
+
+  double? get variancePercent => totalAmount > 0 ? (totalVariance / totalAmount) * 100 : null;
+
+  double getVarianceForYear(int year) {
+    final budget = yearlyAmounts[year] ?? 0.0;
+    final actual = actualYearlyAmounts[year] ?? 0.0;
+    return budget - actual;
+  }
+
   CapExItem copyWith({
     String? id,
     String? projectId,
     CapExCategory? category,
     String? description,
     Map<int, double>? yearlyAmounts,
+    Map<int, double>? actualYearlyAmounts,
     int? usefulLifeMonths,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -41,6 +57,7 @@ class CapExItem extends Equatable {
       category: category ?? this.category,
       description: description ?? this.description,
       yearlyAmounts: yearlyAmounts ?? this.yearlyAmounts,
+      actualYearlyAmounts: actualYearlyAmounts ?? this.actualYearlyAmounts,
       usefulLifeMonths: usefulLifeMonths ?? this.usefulLifeMonths,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -48,7 +65,7 @@ class CapExItem extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, projectId, category, description, yearlyAmounts, usefulLifeMonths, createdAt, updatedAt];
+  List<Object?> get props => [id, projectId, category, description, yearlyAmounts, actualYearlyAmounts, usefulLifeMonths, createdAt, updatedAt];
 }
 
 /// Operating Expenditure line item
@@ -57,7 +74,8 @@ class OpExItem extends Equatable {
   final String projectId;
   final OpExCategory category;
   final String description;
-  final Map<int, double> yearlyAmounts; // year -> amount
+  final Map<int, double> yearlyAmounts; // year -> budgeted amount
+  final Map<int, double> actualYearlyAmounts; // year -> actual amount
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -67,11 +85,25 @@ class OpExItem extends Equatable {
     required this.category,
     required this.description,
     required this.yearlyAmounts,
+    this.actualYearlyAmounts = const {},
     required this.createdAt,
     required this.updatedAt,
   });
 
   double get totalAmount => yearlyAmounts.values.fold(0.0, (sum, v) => sum + v);
+
+  double get totalActualAmount => actualYearlyAmounts.values.fold(0.0, (sum, v) => sum + v);
+
+  /// Variance = Budget - Actual (positive = under-spend = favorable for costs)
+  double get totalVariance => totalAmount - totalActualAmount;
+
+  double? get variancePercent => totalAmount > 0 ? (totalVariance / totalAmount) * 100 : null;
+
+  double getVarianceForYear(int year) {
+    final budget = yearlyAmounts[year] ?? 0.0;
+    final actual = actualYearlyAmounts[year] ?? 0.0;
+    return budget - actual;
+  }
 
   OpExItem copyWith({
     String? id,
@@ -79,6 +111,7 @@ class OpExItem extends Equatable {
     OpExCategory? category,
     String? description,
     Map<int, double>? yearlyAmounts,
+    Map<int, double>? actualYearlyAmounts,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -88,13 +121,14 @@ class OpExItem extends Equatable {
       category: category ?? this.category,
       description: description ?? this.description,
       yearlyAmounts: yearlyAmounts ?? this.yearlyAmounts,
+      actualYearlyAmounts: actualYearlyAmounts ?? this.actualYearlyAmounts,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   @override
-  List<Object?> get props => [id, projectId, category, description, yearlyAmounts, createdAt, updatedAt];
+  List<Object?> get props => [id, projectId, category, description, yearlyAmounts, actualYearlyAmounts, createdAt, updatedAt];
 }
 
 /// Benefit line item
@@ -104,7 +138,8 @@ class BenefitItem extends Equatable {
   final BenefitCategory category;
   final BusinessUnit businessUnit;
   final String description;
-  final Map<int, double> yearlyAmounts; // year -> amount
+  final Map<int, double> yearlyAmounts; // year -> budgeted amount
+  final Map<int, double> actualYearlyAmounts; // year -> actual amount
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -115,11 +150,25 @@ class BenefitItem extends Equatable {
     required this.businessUnit,
     required this.description,
     required this.yearlyAmounts,
+    this.actualYearlyAmounts = const {},
     required this.createdAt,
     required this.updatedAt,
   });
 
   double get totalAmount => yearlyAmounts.values.fold(0.0, (sum, v) => sum + v);
+
+  double get totalActualAmount => actualYearlyAmounts.values.fold(0.0, (sum, v) => sum + v);
+
+  /// Variance = Actual - Budget (positive = exceeded target = favorable for benefits)
+  double get totalVariance => totalActualAmount - totalAmount;
+
+  double? get variancePercent => totalAmount > 0 ? (totalVariance / totalAmount) * 100 : null;
+
+  double getVarianceForYear(int year) {
+    final budget = yearlyAmounts[year] ?? 0.0;
+    final actual = actualYearlyAmounts[year] ?? 0.0;
+    return actual - budget; // Reversed for benefits
+  }
 
   BenefitItem copyWith({
     String? id,
@@ -128,6 +177,7 @@ class BenefitItem extends Equatable {
     BusinessUnit? businessUnit,
     String? description,
     Map<int, double>? yearlyAmounts,
+    Map<int, double>? actualYearlyAmounts,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -138,13 +188,14 @@ class BenefitItem extends Equatable {
       businessUnit: businessUnit ?? this.businessUnit,
       description: description ?? this.description,
       yearlyAmounts: yearlyAmounts ?? this.yearlyAmounts,
+      actualYearlyAmounts: actualYearlyAmounts ?? this.actualYearlyAmounts,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   @override
-  List<Object?> get props => [id, projectId, category, businessUnit, description, yearlyAmounts, createdAt, updatedAt];
+  List<Object?> get props => [id, projectId, category, businessUnit, description, yearlyAmounts, actualYearlyAmounts, createdAt, updatedAt];
 }
 
 /// Aggregated financial summary for a project
@@ -188,6 +239,50 @@ class ProjectFinancials {
     return getBenefitsForYear(year) - getCostsForYear(year);
   }
 
+  // ==================== ACTUALS METHODS ====================
+
+  /// Get actual CapEx for a specific year
+  double getActualCapExForYear(int year) {
+    return capexItems.fold(0.0, (sum, item) => sum + (item.actualYearlyAmounts[year] ?? 0.0));
+  }
+
+  /// Get actual OpEx for a specific year
+  double getActualOpExForYear(int year) {
+    return opexItems.fold(0.0, (sum, item) => sum + (item.actualYearlyAmounts[year] ?? 0.0));
+  }
+
+  /// Get actual Benefits for a specific year
+  double getActualBenefitsForYear(int year) {
+    return benefitItems.fold(0.0, (sum, item) => sum + (item.actualYearlyAmounts[year] ?? 0.0));
+  }
+
+  /// Get actual total costs for a specific year
+  double getActualCostsForYear(int year) {
+    return getActualCapExForYear(year) + getActualOpExForYear(year);
+  }
+
+  // ==================== VARIANCE METHODS ====================
+
+  /// Get cost variance for a year (positive = under-spend = favorable)
+  double getCostVarianceForYear(int year) {
+    return getCostsForYear(year) - getActualCostsForYear(year);
+  }
+
+  /// Get benefit variance for a year (positive = exceeded target = favorable)
+  double getBenefitVarianceForYear(int year) {
+    return getActualBenefitsForYear(year) - getBenefitsForYear(year);
+  }
+
+  /// Get CapEx variance for a year
+  double getCapExVarianceForYear(int year) {
+    return getCapExForYear(year) - getActualCapExForYear(year);
+  }
+
+  /// Get OpEx variance for a year
+  double getOpExVarianceForYear(int year) {
+    return getOpExForYear(year) - getActualOpExForYear(year);
+  }
+
   /// Get yearly CapEx as a list
   List<double> get yearlyCapEx {
     return List.generate(projectionYears, (i) => getCapExForYear(startYear + i));
@@ -224,6 +319,50 @@ class ProjectFinancials {
     return result;
   }
 
+  // ==================== ACTUALS YEARLY LISTS ====================
+
+  /// Get yearly actual CapEx as a list
+  List<double> get yearlyActualCapEx {
+    return List.generate(projectionYears, (i) => getActualCapExForYear(startYear + i));
+  }
+
+  /// Get yearly actual OpEx as a list
+  List<double> get yearlyActualOpEx {
+    return List.generate(projectionYears, (i) => getActualOpExForYear(startYear + i));
+  }
+
+  /// Get yearly actual Benefits as a list
+  List<double> get yearlyActualBenefits {
+    return List.generate(projectionYears, (i) => getActualBenefitsForYear(startYear + i));
+  }
+
+  /// Get yearly actual total costs as a list
+  List<double> get yearlyActualCosts {
+    return List.generate(projectionYears, (i) => getActualCostsForYear(startYear + i));
+  }
+
+  // ==================== VARIANCE YEARLY LISTS ====================
+
+  /// Get yearly cost variance as a list
+  List<double> get yearlyCostVariance {
+    return List.generate(projectionYears, (i) => getCostVarianceForYear(startYear + i));
+  }
+
+  /// Get yearly benefit variance as a list
+  List<double> get yearlyBenefitVariance {
+    return List.generate(projectionYears, (i) => getBenefitVarianceForYear(startYear + i));
+  }
+
+  /// Get yearly CapEx variance as a list
+  List<double> get yearlyCapExVariance {
+    return List.generate(projectionYears, (i) => getCapExVarianceForYear(startYear + i));
+  }
+
+  /// Get yearly OpEx variance as a list
+  List<double> get yearlyOpExVariance {
+    return List.generate(projectionYears, (i) => getOpExVarianceForYear(startYear + i));
+  }
+
   /// Total CapEx across all years
   double get totalCapEx => yearlyCapEx.fold(0.0, (sum, v) => sum + v);
 
@@ -236,11 +375,46 @@ class ProjectFinancials {
   /// Total costs (CapEx + OpEx)
   double get totalCosts => totalCapEx + totalOpEx;
 
+  // ==================== ACTUALS TOTALS ====================
+
+  /// Total actual CapEx across all years
+  double get totalActualCapEx => yearlyActualCapEx.fold(0.0, (sum, v) => sum + v);
+
+  /// Total actual OpEx across all years
+  double get totalActualOpEx => yearlyActualOpEx.fold(0.0, (sum, v) => sum + v);
+
+  /// Total actual Benefits across all years
+  double get totalActualBenefits => yearlyActualBenefits.fold(0.0, (sum, v) => sum + v);
+
+  /// Total actual costs
+  double get totalActualCosts => totalActualCapEx + totalActualOpEx;
+
+  // ==================== VARIANCE TOTALS ====================
+
+  /// Total cost variance (positive = under-spend = favorable)
+  double get totalCostVariance => totalCosts - totalActualCosts;
+
+  /// Total benefit variance (positive = exceeded target = favorable)
+  double get totalBenefitVariance => totalActualBenefits - totalBenefits;
+
+  /// Total CapEx variance
+  double get totalCapExVariance => totalCapEx - totalActualCapEx;
+
+  /// Total OpEx variance
+  double get totalOpExVariance => totalOpEx - totalActualOpEx;
+
   /// CapEx percentage of total costs
   int get capExPercent => totalCosts > 0 ? ((totalCapEx / totalCosts) * 100).round() : 0;
 
   /// OpEx percentage of total costs
   int get opExPercent => totalCosts > 0 ? ((totalOpEx / totalCosts) * 100).round() : 0;
+
+  /// Check if project has any actuals data entered
+  bool get hasActualsData {
+    return capexItems.any((item) => item.actualYearlyAmounts.isNotEmpty) ||
+           opexItems.any((item) => item.actualYearlyAmounts.isNotEmpty) ||
+           benefitItems.any((item) => item.actualYearlyAmounts.isNotEmpty);
+  }
 
   /// Calculate NPV at given discount rate
   double calculateNPV(double discountRate) {

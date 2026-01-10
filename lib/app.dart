@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'providers/auth_providers.dart';
 import 'providers/user_management_providers.dart';
 import 'providers/role_permissions_provider.dart';
+import 'providers/theme_provider.dart';
 import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/project_list/project_list_screen.dart';
 import 'presentation/screens/project_input/project_input_screen.dart';
@@ -179,59 +180,17 @@ class PFRApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final lightTheme = ref.watch(lightThemeProvider);
+    final darkTheme = ref.watch(darkThemeProvider);
+    final themeMode = ref.watch(resolvedThemeModeProvider);
 
     return MaterialApp.router(
       title: 'Project Funding Request',
       debugShowCheckedModeBanner: false,
-      theme: _buildTheme(),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: themeMode,
       routerConfig: router,
-    );
-  }
-
-  ThemeData _buildTheme() {
-    const primaryColor = Color(0xFF1E3A5F); // Corporate blue
-    const secondaryColor = Color(0xFF4A90A4);
-    const accentColor = Color(0xFF2ECC71);
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
-        primary: primaryColor,
-        secondary: secondaryColor,
-        tertiary: accentColor,
-        brightness: Brightness.light,
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      cardTheme: CardThemeData(
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        filled: true,
-        fillColor: Colors.grey[50],
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-      dataTableTheme: DataTableThemeData(
-        headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
-        dividerThickness: 1,
-      ),
     );
   }
 }

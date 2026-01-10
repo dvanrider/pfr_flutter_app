@@ -7,7 +7,9 @@ import '../../../providers/project_providers.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/user_management_providers.dart';
 import '../../../providers/role_permissions_provider.dart';
+import '../../../providers/theme_provider.dart';
 import '../../../services/seed_data_service.dart';
+import '../../widgets/notifications_panel.dart';
 
 /// Home Screen - Main dashboard for PFR application
 class HomeScreen extends ConsumerWidget {
@@ -52,6 +54,10 @@ class HomeScreen extends ConsumerWidget {
               isAppAdmin: isAppAdmin,
               userProfile: userProfile,
             ),
+          // Notifications
+          if (user != null) const NotificationIconButton(),
+          // Theme toggle
+          const _ThemeToggleButton(),
           IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: 'Help & Training',
@@ -693,6 +699,54 @@ class _DebugRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Theme toggle button with popup menu
+class _ThemeToggleButton extends ConsumerWidget {
+  const _ThemeToggleButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentTheme = ref.watch(themeModeProvider);
+
+    return PopupMenuButton<AppThemeMode>(
+      icon: Icon(currentTheme.icon),
+      tooltip: 'Theme: ${currentTheme.displayName}',
+      onSelected: (mode) {
+        ref.read(themeModeProvider.notifier).setThemeMode(mode);
+      },
+      itemBuilder: (context) => AppThemeMode.values.map((mode) {
+        final isSelected = mode == currentTheme;
+        return PopupMenuItem(
+          value: mode,
+          child: Row(
+            children: [
+              Icon(
+                mode.icon,
+                color: isSelected ? Theme.of(context).colorScheme.primary : null,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                mode.displayName,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : null,
+                  color: isSelected ? Theme.of(context).colorScheme.primary : null,
+                ),
+              ),
+              if (isSelected) ...[
+                const Spacer(),
+                Icon(
+                  Icons.check,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 18,
+                ),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

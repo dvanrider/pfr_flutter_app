@@ -112,6 +112,7 @@ class SeedDataService {
       updatedAt: now,
     );
 
+    // Project 1 has actuals data to demonstrate Budget vs Actuals feature
     final capex = [
       CapExItem(
         id: '',
@@ -119,6 +120,7 @@ class SeedDataService {
         category: CapExCategory.software,
         description: 'Cloud platform licenses and setup',
         yearlyAmounts: {startYear: 150000, startYear + 1: 50000},
+        actualYearlyAmounts: {startYear: 142000}, // Under budget by $8K
         usefulLifeMonths: 36,
         createdAt: now,
         updatedAt: now,
@@ -129,6 +131,7 @@ class SeedDataService {
         category: CapExCategory.externalLabor,
         description: 'Migration consultants',
         yearlyAmounts: {startYear: 200000, startYear + 1: 100000},
+        actualYearlyAmounts: {startYear: 215000}, // Over budget by $15K
         usefulLifeMonths: 36,
         createdAt: now,
         updatedAt: now,
@@ -149,6 +152,7 @@ class SeedDataService {
           startYear + 4: 60000,
           startYear + 5: 60000,
         },
+        actualYearlyAmounts: {startYear: 28500}, // Under budget
         createdAt: now,
         updatedAt: now,
       ),
@@ -674,6 +678,7 @@ class SeedDataService {
       'category': item.category.name,
       'description': item.description,
       'yearlyAmounts': item.yearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
+      'actualYearlyAmounts': item.actualYearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
       'usefulLifeMonths': item.usefulLifeMonths,
       'createdAt': Timestamp.fromDate(item.createdAt),
       'updatedAt': Timestamp.fromDate(item.updatedAt),
@@ -685,6 +690,7 @@ class SeedDataService {
       'category': item.category.name,
       'description': item.description,
       'yearlyAmounts': item.yearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
+      'actualYearlyAmounts': item.actualYearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
       'createdAt': Timestamp.fromDate(item.createdAt),
       'updatedAt': Timestamp.fromDate(item.updatedAt),
     };
@@ -696,6 +702,7 @@ class SeedDataService {
       'businessUnit': item.businessUnit.name,
       'description': item.description,
       'yearlyAmounts': item.yearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
+      'actualYearlyAmounts': item.actualYearlyAmounts.map((k, v) => MapEntry(k.toString(), v)),
       'createdAt': Timestamp.fromDate(item.createdAt),
       'updatedAt': Timestamp.fromDate(item.updatedAt),
     };

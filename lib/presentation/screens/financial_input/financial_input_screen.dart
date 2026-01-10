@@ -24,7 +24,7 @@ class _FinancialInputScreenState extends ConsumerState<FinancialInputScreen> wit
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -51,6 +51,7 @@ class _FinancialInputScreenState extends ConsumerState<FinancialInputScreen> wit
             Tab(text: 'CapEx', icon: Icon(Icons.build)),
             Tab(text: 'OpEx', icon: Icon(Icons.monetization_on)),
             Tab(text: 'Benefits', icon: Icon(Icons.trending_up)),
+            Tab(text: 'Actuals', icon: Icon(Icons.fact_check)),
           ],
         ),
       ),
@@ -65,6 +66,7 @@ class _FinancialInputScreenState extends ConsumerState<FinancialInputScreen> wit
               _CapExTab(project: project),
               _OpExTab(project: project),
               _BenefitsTab(project: project),
+              _ActualsTab(project: project),
             ],
           );
         },
@@ -230,6 +232,363 @@ class _BenefitsTab extends ConsumerWidget {
 
     if (confirmed == true) {
       await ref.read(benefitRepositoryProvider).delete(item.projectId, item.id);
+    }
+  }
+}
+
+class _ActualsTab extends ConsumerWidget {
+  final Project project;
+
+  const _ActualsTab({required this.project});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final financialsAsync = ref.watch(projectFinancialsProvider((
+      projectId: project.id,
+      startYear: project.startYear,
+    )));
+
+    return financialsAsync.when(
+      data: (financials) => _ActualsEntryView(project: project, financials: financials),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+    );
+  }
+}
+
+class _ActualsEntryView extends ConsumerWidget {
+  final Project project;
+  final ProjectFinancials financials;
+
+  const _ActualsEntryView({required this.project, required this.financials});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final hasData = financials.capexItems.isNotEmpty ||
+        financials.opexItems.isNotEmpty ||
+        financials.benefitItems.isNotEmpty;
+
+    if (!hasData) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('No financial items to track actuals for',
+                style: TextStyle(color: Colors.grey[600])),
+            const SizedBox(height: 8),
+            Text('Add CapEx, OpEx, or Benefits first',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Summary card
+        Card(
+          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Budget vs Actuals Summary',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryItem(
+                        label: 'Total Budget',
+                        value: currencyFormat.format(financials.totalCosts + financials.totalBenefits),
+                      ),
+                    ),
+                    Expanded(
+                      child: _SummaryItem(
+                        label: 'Total Actuals',
+                        value: currencyFormat.format(financials.totalActualCosts + financials.totalActualBenefits),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // CapEx Actuals Section
+        if (financials.capexItems.isNotEmpty) ...[
+          _SectionHeader(title: 'CapEx Actuals', icon: Icons.build, color: Colors.blue),
+          ...financials.capexItems.map((item) => _ActualEntryCard(
+            description: item.description,
+            category: item.category.displayName,
+            budgetAmounts: item.yearlyAmounts,
+            actualAmounts: item.actualYearlyAmounts,
+            startYear: project.startYear,
+            isBenefit: false,
+            onSave: (actuals) async {
+              final updated = item.copyWith(actualYearlyAmounts: actuals);
+              await ref.read(capexRepositoryProvider).update(updated);
+            },
+          )),
+          const SizedBox(height: 16),
+        ],
+
+        // OpEx Actuals Section
+        if (financials.opexItems.isNotEmpty) ...[
+          _SectionHeader(title: 'OpEx Actuals', icon: Icons.monetization_on, color: Colors.orange),
+          ...financials.opexItems.map((item) => _ActualEntryCard(
+            description: item.description,
+            category: item.category.displayName,
+            budgetAmounts: item.yearlyAmounts,
+            actualAmounts: item.actualYearlyAmounts,
+            startYear: project.startYear,
+            isBenefit: false,
+            onSave: (actuals) async {
+              final updated = item.copyWith(actualYearlyAmounts: actuals);
+              await ref.read(opexRepositoryProvider).update(updated);
+            },
+          )),
+          const SizedBox(height: 16),
+        ],
+
+        // Benefits Actuals Section
+        if (financials.benefitItems.isNotEmpty) ...[
+          _SectionHeader(title: 'Benefits Actuals', icon: Icons.trending_up, color: Colors.green),
+          ...financials.benefitItems.map((item) => _ActualEntryCard(
+            description: item.description,
+            category: '${item.category.displayName} - ${item.businessUnit.displayName}',
+            budgetAmounts: item.yearlyAmounts,
+            actualAmounts: item.actualYearlyAmounts,
+            startYear: project.startYear,
+            isBenefit: true,
+            onSave: (actuals) async {
+              final updated = item.copyWith(actualYearlyAmounts: actuals);
+              await ref.read(benefitRepositoryProvider).update(updated);
+            },
+          )),
+        ],
+      ],
+    );
+  }
+}
+
+class _SummaryItem extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _SummaryItem({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+
+  const _SectionHeader({required this.title, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActualEntryCard extends StatefulWidget {
+  final String description;
+  final String category;
+  final Map<int, double> budgetAmounts;
+  final Map<int, double> actualAmounts;
+  final int startYear;
+  final bool isBenefit;
+  final Future<void> Function(Map<int, double> actuals) onSave;
+
+  const _ActualEntryCard({
+    required this.description,
+    required this.category,
+    required this.budgetAmounts,
+    required this.actualAmounts,
+    required this.startYear,
+    required this.isBenefit,
+    required this.onSave,
+  });
+
+  @override
+  State<_ActualEntryCard> createState() => _ActualEntryCardState();
+}
+
+class _ActualEntryCardState extends State<_ActualEntryCard> {
+  late Map<int, TextEditingController> _controllers;
+  bool _isSaving = false;
+  bool _hasChanges = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {};
+    for (int i = 0; i < FinancialConstants.projectionYears; i++) {
+      final year = widget.startYear + i;
+      final amount = widget.actualAmounts[year] ?? 0.0;
+      _controllers[year] = TextEditingController(text: amount > 0 ? amount.toStringAsFixed(0) : '');
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final compactFormat = NumberFormat.compact();
+    final totalBudget = widget.budgetAmounts.values.fold(0.0, (sum, v) => sum + v);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.description, style: const TextStyle(fontWeight: FontWeight.w500)),
+                      Text(widget.category, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    ],
+                  ),
+                ),
+                Text('Budget: ${currencyFormat.format(totalBudget)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Year columns
+            Row(
+              children: List.generate(FinancialConstants.projectionYears, (i) {
+                final year = widget.startYear + i;
+                final budget = widget.budgetAmounts[year] ?? 0.0;
+                final actualText = _controllers[year]?.text ?? '';
+                final actual = double.tryParse(actualText) ?? 0.0;
+                final variance = widget.isBenefit ? (actual - budget) : (budget - actual);
+
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Column(
+                      children: [
+                        Text('Y${i + 1}', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                        Text('B: ${budget == 0 ? '-' : compactFormat.format(budget)}',
+                            style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          height: 36,
+                          child: TextFormField(
+                            controller: _controllers[year],
+                            decoration: InputDecoration(
+                              prefixText: '\$',
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+                            ),
+                            style: const TextStyle(fontSize: 12),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            onChanged: (_) => setState(() => _hasChanges = true),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        if (actual > 0 || budget > 0)
+                          Text(
+                            '${variance >= 0 ? '+' : ''}${compactFormat.format(variance)}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: variance >= 0 ? Colors.green[700] : Colors.red[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+            // Save button
+            if (_hasChanges)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonal(
+                    onPressed: _isSaving ? null : _saveActuals,
+                    child: _isSaving
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Save'),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveActuals() async {
+    setState(() => _isSaving = true);
+    try {
+      final actuals = <int, double>{};
+      _controllers.forEach((year, controller) {
+        final value = double.tryParse(controller.text) ?? 0;
+        if (value > 0) actuals[year] = value;
+      });
+      await widget.onSave(actuals);
+      if (mounted) {
+        setState(() => _hasChanges = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Actuals saved'), backgroundColor: Colors.green, duration: Duration(seconds: 1)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 }

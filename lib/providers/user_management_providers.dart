@@ -106,6 +106,14 @@ class UserManagementRepository {
     final existingUser = await getUserById(uid);
 
     if (existingUser != null) {
+      // Check if this is a test user that needs role update
+      final testRole = _getTestUserRole(email);
+      if (testRole != null && existingUser.role != testRole) {
+        // Update role for test user
+        await updateUserRole(uid, testRole);
+        await updateLastLogin(uid);
+        return existingUser.copyWith(role: testRole, lastLoginAt: DateTime.now());
+      }
       // Update last login
       await updateLastLogin(uid);
       return existingUser.copyWith(lastLoginAt: DateTime.now());
@@ -114,13 +122,24 @@ class UserManagementRepository {
     // Check for pre-registration by email
     final preReg = await getPreRegistration(email);
 
-    // Create new user with pre-registered role if exists
+    // Determine role: test user > pre-registration > default
+    UserRole role;
+    final testRole = _getTestUserRole(email);
+    if (testRole != null) {
+      role = testRole;
+    } else if (preReg != null) {
+      role = _parseRole(preReg['role'] as String?);
+    } else {
+      role = UserRole.requester;
+    }
+
+    // Create new user
     final newUser = AppUser(
       uid: uid,
       email: email,
-      displayName: preReg?['displayName'] as String? ?? displayName,
+      displayName: preReg?['displayName'] as String? ?? displayName ?? _getTestUserDisplayName(email),
       department: preReg?['department'] as String?,
-      role: preReg != null ? _parseRole(preReg['role'] as String?) : UserRole.requester,
+      role: role,
       isActive: true,
       createdAt: DateTime.now(),
       lastLoginAt: DateTime.now(),
@@ -134,6 +153,38 @@ class UserManagementRepository {
     }
 
     return newUser;
+  }
+
+  /// Get role for test users based on email
+  static UserRole? _getTestUserRole(String email) {
+    switch (email.toLowerCase()) {
+      case 'exec@example.com':
+        return UserRole.executive;
+      case 'su@example.com':
+        return UserRole.superUser;
+      case 'approve@example.com':
+        return UserRole.approver;
+      case 'req@example.com':
+        return UserRole.requester;
+      default:
+        return null;
+    }
+  }
+
+  /// Get display name for test users
+  static String? _getTestUserDisplayName(String email) {
+    switch (email.toLowerCase()) {
+      case 'exec@example.com':
+        return 'Test Executive';
+      case 'su@example.com':
+        return 'Test SuperUser';
+      case 'approve@example.com':
+        return 'Test Approver';
+      case 'req@example.com':
+        return 'Test Requester';
+      default:
+        return null;
+    }
   }
 
   static UserRole _parseRole(String? role) {

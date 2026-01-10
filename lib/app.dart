@@ -61,13 +61,29 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Protect executive dashboard with permission check
-      if (isGoingExecutive && !canViewExecDashboard) {
-        return '/';
+      // Also allow SuperUser, Admin, and Executive roles directly
+      if (isGoingExecutive) {
+        final user = appUser.valueOrNull;
+        final canAccess = user?.role == UserRole.superUser ||
+            user?.role == UserRole.admin ||
+            user?.role == UserRole.executive ||
+            canViewExecDashboard;
+        if (!canAccess) {
+          return '/';
+        }
       }
 
       // Protect analysis tools with viewAllProjects permission
-      if (isGoingAnalysis && !canViewAllProjects) {
-        return '/';
+      // Also allow SuperUser, Admin, and Executive roles directly
+      if (isGoingAnalysis) {
+        final user = appUser.valueOrNull;
+        final canAccess = user?.role == UserRole.superUser ||
+            user?.role == UserRole.admin ||
+            user?.role == UserRole.executive ||
+            canViewAllProjects;
+        if (!canAccess) {
+          return '/';
+        }
       }
 
       return null;

@@ -332,6 +332,45 @@ class ExecutiveDashboardScreen extends ConsumerWidget {
 
             const SizedBox(height: 32),
 
+            // Analysis Tools Section
+            Text('Analysis Tools', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _AnalysisToolCard(
+                    icon: Icons.compare_arrows,
+                    title: 'Compare Projects',
+                    subtitle: 'Side-by-side comparison',
+                    color: Colors.teal,
+                    onTap: () => context.go('/analysis/compare'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _AnalysisToolCard(
+                    icon: Icons.trending_up,
+                    title: 'Sensitivity Analysis',
+                    subtitle: 'What-if scenarios',
+                    color: Colors.indigo,
+                    onTap: () => context.go('/analysis/sensitivity'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _AnalysisToolCard(
+                    icon: Icons.warning_amber,
+                    title: 'Risk Assessment',
+                    subtitle: 'Risk scoring matrix',
+                    color: Colors.deepOrange,
+                    onTap: () => context.go('/analysis/risk'),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+
             // Recent Activity
             Text('Recent Projects', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
@@ -837,6 +876,61 @@ class _ConfigRow extends StatelessWidget {
           Text(label, style: TextStyle(color: Colors.grey[600])),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
+      ),
+    );
+  }
+}
+
+class _AnalysisToolCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AnalysisToolCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 28),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

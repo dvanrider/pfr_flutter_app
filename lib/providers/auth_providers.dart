@@ -143,8 +143,17 @@ class UserProfile {
       email: data['email'] ?? '',
       displayName: data['displayName'],
       role: _parseRole(data['role']),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDateTime(data['createdAt']) ?? DateTime.now(),
     );
+  }
+
+  /// Parse DateTime from various formats (Timestamp, String, or null)
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 
   Map<String, dynamic> toFirestore() {

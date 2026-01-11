@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/financial_constants.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../../data/models/project.dart';
 import '../../../providers/providers.dart';
+import '../../widgets/dashboard_widgets.dart';
 
 /// Executive Dashboard - Main screen for executive users
 /// Shows comprehensive organization-wide metrics and analytics
@@ -22,49 +23,71 @@ class ExecutiveDashboardScreen extends ConsumerWidget {
     final configAsync = ref.watch(systemConfigProvider);
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 
+    // Check screen size for AppBar responsiveness
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobileAppBar = screenWidth < Breakpoints.mobile;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Executive Dashboard'),
+        title: Text(isMobileAppBar ? 'Executive' : 'Executive Dashboard'),
         actions: [
+          // Theme toggle button
+          Consumer(
+            builder: (context, ref, _) {
+              final currentTheme = ref.watch(themeModeProvider);
+              return IconButton(
+                icon: Icon(currentTheme.icon),
+                tooltip: 'Theme: ${currentTheme.displayName}',
+                onPressed: () {
+                  ref.read(themeModeProvider.notifier).cycleTheme();
+                },
+              );
+            },
+          ),
           if (user != null) ...[
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.business_center, size: 16, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    userProfile?.role.displayName.toUpperCase() ?? 'EXECUTIVE',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+            // Only show role badge on larger screens
+            if (!isMobileAppBar)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.business_center, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text(
+                      userProfile?.role.displayName.toUpperCase() ?? 'EXECUTIVE',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Center(
-                child: Text(
-                  user.displayName ?? user.email ?? 'User',
-                  style: const TextStyle(fontSize: 14),
+                  ],
                 ),
               ),
-            ),
+            // Only show username on larger screens
+            if (!isMobileAppBar)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Center(
+                  child: Text(
+                    user.displayName ?? user.email ?? 'User',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ),
             PopupMenuButton<String>(
               icon: CircleAvatar(
                 backgroundColor: Colors.deepPurple,
+                radius: isMobileAppBar ? 16 : 20,
                 child: Text(
                   (user.displayName ?? user.email ?? 'E')[0].toUpperCase(),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: Colors.white, fontSize: isMobileAppBar ? 12 : 14),
                 ),
               ),
               onSelected: (value) async {
@@ -87,9 +110,29 @@ class ExecutiveDashboardScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        user.displayName ?? 'Executive',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      Row(
+                        children: [
+                          Text(
+                            user.displayName ?? 'Executive',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.deepPurple,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              userProfile?.role.displayName ?? 'Executive',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
                         user.email ?? '',
@@ -124,292 +167,466 @@ class ExecutiveDashboardScreen extends ConsumerWidget {
           ],
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenSize = getScreenSize(constraints.maxWidth);
+          final padding = getResponsivePadding(screenSize);
+          final spacing = getResponsiveSpacing(screenSize);
+          final largeSpacing = getResponsiveLargeSpacing(screenSize);
+          final isMobileView = screenSize == ScreenSize.mobile;
+          final isCompact = isMobileView;
+          final availableWidth = constraints.maxWidth - (padding * 2);
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
+                // Header
+                if (isMobileView)
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Organization Overview',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Real-time metrics and portfolio analytics',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      configAsync.when(
+                        data: (config) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.update, size: 14, color: Colors.grey[600]),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Config: ${DateFormat('MMM dd, HH:mm').format(config.updatedAt)}',
+                                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
                       ),
                     ],
-                  ),
-                ),
-                // Last updated indicator
-                configAsync.when(
-                  data: (config) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.update, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Config: ${DateFormat('MMM dd, HH:mm').format(config.updatedAt)}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  ),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-
-            // Key Financial Metrics
-            projectsAsync.when(
-              data: (projects) => _buildKeyMetrics(context, projects, currencyFormat),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Error: $e'),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Charts Row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Projects by Status
-                Expanded(
-                  child: _ChartCard(
-                    title: 'Projects by Status',
-                    child: projectsAsync.when(
-                      data: (projects) => _buildStatusPieChart(context, projects),
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Text('Error: $e'),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Projects by Segment
-                Expanded(
-                  child: _ChartCard(
-                    title: 'Projects by Segment',
-                    child: projectsAsync.when(
-                      data: (projects) => _buildSegmentPieChart(context, projects),
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Text('Error: $e'),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Projects by IC Category
-                Expanded(
-                  child: _ChartCard(
-                    title: 'Projects by Category',
-                    child: projectsAsync.when(
-                      data: (projects) => _buildCategoryPieChart(context, projects),
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Text('Error: $e'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Approval Pipeline
-            Text('Approval Pipeline', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            projectsAsync.when(
-              data: (projects) => _buildApprovalPipeline(context, projects, currencyFormat),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Error: $e'),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Configuration & User Summary Row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Configuration Summary
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.settings, color: Colors.grey[600]),
-                              const SizedBox(width: 8),
-                              Text('System Configuration', style: Theme.of(context).textTheme.titleMedium),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          configAsync.when(
-                            data: (config) => Column(
-                              children: [
-                                _ConfigRow(label: 'Hurdle Rate (IRR)', value: '${(config.hurdleRate * 100).toStringAsFixed(0)}%'),
-                                _ConfigRow(label: 'Projection Years', value: '${config.projectionYears} years'),
-                                _ConfigRow(label: 'Contingency Rate', value: '${(config.contingencyRate * 100).toStringAsFixed(0)}%'),
-                                _ConfigRow(
-                                  label: 'Auto-Approve Threshold',
-                                  value: config.autoApproveThreshold > 0
-                                      ? currencyFormat.format(config.autoApproveThreshold)
-                                      : 'Disabled',
-                                ),
-                                _ConfigRow(label: 'Approval Levels', value: '${config.approvalChain.length} levels'),
-                              ],
-                            ),
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (e, _) => Text('Error: $e'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // User Summary
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.people, color: Colors.grey[600]),
-                              const SizedBox(width: 8),
-                              Text('User Statistics', style: Theme.of(context).textTheme.titleMedium),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          usersAsync.when(
-                            data: (users) {
-                              final activeCount = users.where((u) => u.isActive).length;
-                              final adminCount = users.where((u) => u.role == UserRole.admin).length;
-                              final execCount = users.where((u) => u.role == UserRole.executive).length;
-                              final approverCount = users.where((u) => u.role == UserRole.approver).length;
-                              final requesterCount = users.where((u) => u.role == UserRole.requester).length;
-                              return Column(
-                                children: [
-                                  _ConfigRow(label: 'Total Users', value: '${users.length}'),
-                                  _ConfigRow(label: 'Active Users', value: '$activeCount'),
-                                  _ConfigRow(label: 'Admins', value: '$adminCount'),
-                                  _ConfigRow(label: 'Executives', value: '$execCount'),
-                                  _ConfigRow(label: 'Approvers', value: '$approverCount'),
-                                  _ConfigRow(label: 'Requesters', value: '$requesterCount'),
-                                ],
-                              );
-                            },
-                            loading: () => const Center(child: CircularProgressIndicator()),
-                            error: (e, _) => Text('Error: $e'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Analysis Tools Section
-            Text('Analysis Tools', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _AnalysisToolCard(
-                    icon: Icons.compare_arrows,
-                    title: 'Compare Projects',
-                    subtitle: 'Side-by-side comparison',
-                    color: Colors.teal,
-                    onTap: () => context.go('/analysis/compare'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _AnalysisToolCard(
-                    icon: Icons.trending_up,
-                    title: 'Sensitivity Analysis',
-                    subtitle: 'What-if scenarios',
-                    color: Colors.indigo,
-                    onTap: () => context.go('/analysis/sensitivity'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _AnalysisToolCard(
-                    icon: Icons.warning_amber,
-                    title: 'Risk Assessment',
-                    subtitle: 'Risk scoring matrix',
-                    color: Colors.deepOrange,
-                    onTap: () => context.go('/analysis/risk'),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // Recent Activity
-            Text('Recent Projects', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            projectsAsync.when(
-              data: (projects) {
-                final recent = projects.take(10).toList();
-                if (recent.isEmpty) {
-                  return const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: Text('No projects yet')),
-                    ),
-                  );
-                }
-                return Card(
-                  child: Column(
-                    children: recent.map((project) {
-                      return ListTile(
-                        leading: _StatusIcon(status: project.status),
-                        title: Text(project.projectName),
-                        subtitle: Text('${project.pfrNumber} | ${project.segment} | ${project.businessUnit}'),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _StatusBadge(status: project.status),
+                            Text(
+                              'Organization Overview',
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             Text(
-                              DateFormat('MMM dd').format(project.updatedAt),
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                              'Real-time metrics and portfolio analytics',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 16),
                             ),
                           ],
                         ),
-                        onTap: () => context.go('/project/${project.id}/analysis'),
-                      );
-                    }).toList(),
+                      ),
+                      configAsync.when(
+                        data: (config) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.update, size: 16, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Config: ${DateFormat('MMM dd, HH:mm').format(config.updatedAt)}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                    ],
                   ),
-                );
-              },
+                SizedBox(height: largeSpacing),
+
+                // Key Financial Metrics
+                projectsAsync.when(
+                  data: (projects) => buildKeyMetricsRow(
+                    context: context,
+                    projects: projects,
+                    screenSize: screenSize,
+                    availableWidth: availableWidth,
+                  ),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('Error: $e'),
+                ),
+
+                SizedBox(height: largeSpacing),
+
+                // Charts Row - Stack on mobile, Row on desktop
+                if (isMobileView)
+                  Column(
+                    children: [
+                      ChartCard(
+                        title: 'Projects by Status',
+                        child: projectsAsync.when(
+                          data: (projects) => buildStatusPieChart(context, projects, isCompact: isCompact),
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Text('Error: $e'),
+                        ),
+                      ),
+                      SizedBox(height: spacing),
+                      ChartCard(
+                        title: 'Projects by Segment',
+                        child: projectsAsync.when(
+                          data: (projects) => buildSegmentPieChart(context, projects, isCompact: isCompact),
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Text('Error: $e'),
+                        ),
+                      ),
+                      SizedBox(height: spacing),
+                      ChartCard(
+                        title: 'Projects by Category',
+                        child: projectsAsync.when(
+                          data: (projects) => buildCategoryPieChart(context, projects, isCompact: isCompact),
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Text('Error: $e'),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: ChartCard(
+                          title: 'Projects by Status',
+                          child: projectsAsync.when(
+                            data: (projects) => buildStatusPieChart(context, projects),
+                            loading: () => const Center(child: CircularProgressIndicator()),
+                            error: (e, _) => Text('Error: $e'),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: spacing),
+                      Expanded(
+                        child: ChartCard(
+                          title: 'Projects by Segment',
+                          child: projectsAsync.when(
+                            data: (projects) => buildSegmentPieChart(context, projects),
+                            loading: () => const Center(child: CircularProgressIndicator()),
+                            error: (e, _) => Text('Error: $e'),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: spacing),
+                      Expanded(
+                        child: ChartCard(
+                          title: 'Projects by Category',
+                          child: projectsAsync.when(
+                            data: (projects) => buildCategoryPieChart(context, projects),
+                            loading: () => const Center(child: CircularProgressIndicator()),
+                            error: (e, _) => Text('Error: $e'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                SizedBox(height: largeSpacing),
+
+                // Approval Pipeline
+                Text('Approval Pipeline', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                SizedBox(height: spacing),
+                projectsAsync.when(
+                  data: (projects) => _buildApprovalPipeline(context, projects, currencyFormat, isMobile: isMobileView, spacing: spacing),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('Error: $e'),
+                ),
+
+                SizedBox(height: largeSpacing),
+
+                // Analysis Tools Section
+                Text('Analysis Tools', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                SizedBox(height: spacing),
+                if (isMobileView)
+                  Column(
+                    children: [
+                      _AnalysisToolCard(
+                        icon: Icons.compare_arrows,
+                        title: 'Compare Projects',
+                        subtitle: 'Side-by-side comparison',
+                        color: Colors.teal,
+                        onTap: () => context.go('/analysis/compare'),
+                      ),
+                      SizedBox(height: spacing),
+                      _AnalysisToolCard(
+                        icon: Icons.trending_up,
+                        title: 'Sensitivity Analysis',
+                        subtitle: 'What-if scenarios',
+                        color: Colors.indigo,
+                        onTap: () => context.go('/analysis/sensitivity'),
+                      ),
+                      SizedBox(height: spacing),
+                      _AnalysisToolCard(
+                        icon: Icons.warning_amber,
+                        title: 'Risk Assessment',
+                        subtitle: 'Risk scoring matrix',
+                        color: Colors.deepOrange,
+                        onTap: () => context.go('/analysis/risk'),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _AnalysisToolCard(
+                          icon: Icons.compare_arrows,
+                          title: 'Compare Projects',
+                          subtitle: 'Side-by-side comparison',
+                          color: Colors.teal,
+                          onTap: () => context.go('/analysis/compare'),
+                        ),
+                      ),
+                      SizedBox(width: spacing),
+                      Expanded(
+                        child: _AnalysisToolCard(
+                          icon: Icons.trending_up,
+                          title: 'Sensitivity Analysis',
+                          subtitle: 'What-if scenarios',
+                          color: Colors.indigo,
+                          onTap: () => context.go('/analysis/sensitivity'),
+                        ),
+                      ),
+                      SizedBox(width: spacing),
+                      Expanded(
+                        child: _AnalysisToolCard(
+                          icon: Icons.warning_amber,
+                          title: 'Risk Assessment',
+                          subtitle: 'Risk scoring matrix',
+                          color: Colors.deepOrange,
+                          onTap: () => context.go('/analysis/risk'),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                SizedBox(height: largeSpacing),
+
+                // Recent Activity
+                Text('Recent Projects', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                SizedBox(height: spacing),
+                projectsAsync.when(
+                  data: (projects) {
+                    final recent = projects.take(10).toList();
+                    if (recent.isEmpty) {
+                      return const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: Text('No projects yet')),
+                        ),
+                      );
+                    }
+                    return Card(
+                      child: Column(
+                        children: recent.map((project) {
+                          return ListTile(
+                            leading: isMobileView ? null : ProjectStatusIcon(status: project.status),
+                            title: Text(
+                              project.projectName,
+                              style: TextStyle(fontSize: isMobileView ? 14 : null),
+                            ),
+                            subtitle: Text(
+                              isMobileView
+                                  ? project.pfrNumber
+                                  : '${project.pfrNumber} | ${project.segment} | ${project.businessUnit}',
+                              style: TextStyle(fontSize: isMobileView ? 12 : null),
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                ProjectStatusBadge(status: project.status),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('MMM dd').format(project.updatedAt),
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                ),
+                              ],
+                            ),
+                            onTap: () => context.go('/project/${project.id}/analysis'),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Text('Error: $e'),
+                ),
+
+                SizedBox(height: largeSpacing),
+
+                // Configuration & User Summary Row - Stack on mobile
+                if (isMobileView)
+                  Column(
+                    children: [
+                      _buildConfigCard(context, configAsync, currencyFormat),
+                      SizedBox(height: spacing),
+                      _buildUserStatsCard(context, usersAsync),
+                    ],
+                  )
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildConfigCard(context, configAsync, currencyFormat)),
+                      SizedBox(width: spacing),
+                      Expanded(child: _buildUserStatsCard(context, usersAsync)),
+                    ],
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildApprovalPipeline(
+    BuildContext context,
+    List<Project> projects,
+    NumberFormat currencyFormat, {
+    required bool isMobile,
+    required double spacing,
+  }) {
+    final submitted = projects.where((p) => p.status == ProjectStatus.submitted).toList();
+    final pending = projects.where((p) => p.status == ProjectStatus.pendingApproval).toList();
+    final onHold = projects.where((p) => p.status == ProjectStatus.onHold).toList();
+
+    final cards = [
+      _PipelineCard(
+        title: 'Submitted',
+        count: submitted.length,
+        color: Colors.blue,
+        icon: Icons.send,
+        isCompact: isMobile,
+        onTap: submitted.isNotEmpty ? () => showProjectDrillDown(
+          context: context,
+          title: 'Submitted Projects',
+          projects: submitted,
+          color: Colors.blue,
+        ) : null,
+      ),
+      _PipelineCard(
+        title: 'Pending Approval',
+        count: pending.length,
+        color: Colors.orange,
+        icon: Icons.pending_actions,
+        isCompact: isMobile,
+        onTap: pending.isNotEmpty ? () => showProjectDrillDown(
+          context: context,
+          title: 'Pending Approval',
+          projects: pending,
+          color: Colors.orange,
+        ) : null,
+      ),
+      _PipelineCard(
+        title: 'On Hold',
+        count: onHold.length,
+        color: Colors.purple,
+        icon: Icons.pause_circle,
+        isCompact: isMobile,
+        onTap: onHold.isNotEmpty ? () => showProjectDrillDown(
+          context: context,
+          title: 'Projects On Hold',
+          projects: onHold,
+          color: Colors.purple,
+        ) : null,
+      ),
+    ];
+
+    if (isMobile) {
+      return Column(
+        children: [
+          cards[0],
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: spacing / 2),
+            child: const Icon(Icons.arrow_downward, color: Colors.grey),
+          ),
+          cards[1],
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: spacing / 2),
+            child: const Icon(Icons.arrow_downward, color: Colors.grey),
+          ),
+          cards[2],
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: cards[0]),
+        const Icon(Icons.arrow_forward, color: Colors.grey),
+        Expanded(child: cards[1]),
+        const Icon(Icons.arrow_forward, color: Colors.grey),
+        Expanded(child: cards[2]),
+      ],
+    );
+  }
+
+  Widget _buildConfigCard(BuildContext context, AsyncValue configAsync, NumberFormat currencyFormat) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.settings, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text('System Configuration', style: Theme.of(context).textTheme.titleMedium),
+              ],
+            ),
+            const Divider(height: 24),
+            configAsync.when(
+              data: (config) => Column(
+                children: [
+                  _ConfigRow(label: 'Hurdle Rate (IRR)', value: '${(config.hurdleRate * 100).toStringAsFixed(0)}%'),
+                  _ConfigRow(label: 'Projection Years', value: '${config.projectionYears} years'),
+                  _ConfigRow(label: 'Contingency Rate', value: '${(config.contingencyRate * 100).toStringAsFixed(0)}%'),
+                  _ConfigRow(
+                    label: 'Auto-Approve Threshold',
+                    value: config.autoApproveThreshold > 0
+                        ? currencyFormat.format(config.autoApproveThreshold)
+                        : 'Disabled',
+                  ),
+                  _ConfigRow(label: 'Approval Levels', value: '${config.approvalChain.length} levels'),
+                ],
+              ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('Error: $e'),
             ),
@@ -419,392 +636,42 @@ class ExecutiveDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildKeyMetrics(BuildContext context, List<Project> projects, NumberFormat currencyFormat) {
-    final totalProjects = projects.length;
-    final approvedProjects = projects.where((p) => p.status == ProjectStatus.approved).toList();
-    final pendingProjects = projects.where((p) => p.status == ProjectStatus.pendingApproval || p.status == ProjectStatus.submitted).toList();
-    final rejectedProjects = projects.where((p) => p.status == ProjectStatus.rejected).toList();
-    final draftProjects = projects.where((p) => p.status == ProjectStatus.draft).toList();
-    final approvalRate = totalProjects > 0 ? (approvedProjects.length / totalProjects * 100) : 0;
-
-    return Row(
-      children: [
-        _KeyMetricCard(
-          title: 'Total Projects',
-          value: '$totalProjects',
-          icon: Icons.folder,
-          color: Colors.blue,
-          onTap: projects.isNotEmpty ? () => _showProjectDrillDown(
-            context: context,
-            title: 'All Projects',
-            projects: projects,
-            color: Colors.blue,
-          ) : null,
-        ),
-        const SizedBox(width: 16),
-        _KeyMetricCard(
-          title: 'Approved',
-          value: '${approvedProjects.length}',
-          subtitle: approvalRate > 0 ? '${approvalRate.toStringAsFixed(0)}% rate' : null,
-          icon: Icons.check_circle,
-          color: Colors.green,
-          onTap: approvedProjects.isNotEmpty ? () => _showProjectDrillDown(
-            context: context,
-            title: 'Approved Projects',
-            projects: approvedProjects,
-            color: Colors.green,
-          ) : null,
-        ),
-        const SizedBox(width: 16),
-        _KeyMetricCard(
-          title: 'Pending Approval',
-          value: '${pendingProjects.length}',
-          icon: Icons.hourglass_empty,
-          color: Colors.orange,
-          onTap: pendingProjects.isNotEmpty ? () => _showProjectDrillDown(
-            context: context,
-            title: 'Pending Approval',
-            projects: pendingProjects,
-            color: Colors.orange,
-          ) : null,
-        ),
-        const SizedBox(width: 16),
-        _KeyMetricCard(
-          title: 'Rejected',
-          value: '${rejectedProjects.length}',
-          icon: Icons.cancel,
-          color: Colors.red,
-          onTap: rejectedProjects.isNotEmpty ? () => _showProjectDrillDown(
-            context: context,
-            title: 'Rejected Projects',
-            projects: rejectedProjects,
-            color: Colors.red,
-          ) : null,
-        ),
-        const SizedBox(width: 16),
-        _KeyMetricCard(
-          title: 'Drafts',
-          value: '${draftProjects.length}',
-          icon: Icons.edit_note,
-          color: Colors.grey,
-          onTap: draftProjects.isNotEmpty ? () => _showProjectDrillDown(
-            context: context,
-            title: 'Draft Projects',
-            projects: draftProjects,
-            color: Colors.grey,
-          ) : null,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildApprovalPipeline(BuildContext context, List<Project> projects, NumberFormat currencyFormat) {
-    final submitted = projects.where((p) => p.status == ProjectStatus.submitted).toList();
-    final pending = projects.where((p) => p.status == ProjectStatus.pendingApproval).toList();
-    final onHold = projects.where((p) => p.status == ProjectStatus.onHold).toList();
-
-    return Row(
-      children: [
-        Expanded(
-          child: _PipelineCard(
-            title: 'Submitted',
-            count: submitted.length,
-            color: Colors.blue,
-            icon: Icons.send,
-            onTap: submitted.isNotEmpty ? () => _showProjectDrillDown(
-              context: context,
-              title: 'Submitted Projects',
-              projects: submitted,
-              color: Colors.blue,
-            ) : null,
-          ),
-        ),
-        const Icon(Icons.arrow_forward, color: Colors.grey),
-        Expanded(
-          child: _PipelineCard(
-            title: 'Pending Approval',
-            count: pending.length,
-            color: Colors.orange,
-            icon: Icons.pending_actions,
-            onTap: pending.isNotEmpty ? () => _showProjectDrillDown(
-              context: context,
-              title: 'Pending Approval',
-              projects: pending,
-              color: Colors.orange,
-            ) : null,
-          ),
-        ),
-        const Icon(Icons.arrow_forward, color: Colors.grey),
-        Expanded(
-          child: _PipelineCard(
-            title: 'On Hold',
-            count: onHold.length,
-            color: Colors.purple,
-            icon: Icons.pause_circle,
-            onTap: onHold.isNotEmpty ? () => _showProjectDrillDown(
-              context: context,
-              title: 'Projects On Hold',
-              projects: onHold,
-              color: Colors.purple,
-            ) : null,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatusPieChart(BuildContext context, List<Project> projects) {
-    if (projects.isEmpty) {
-      return const Center(child: Text('No projects'));
-    }
-
-    final statusCounts = <ProjectStatus, int>{};
-    for (final project in projects) {
-      statusCounts[project.status] = (statusCounts[project.status] ?? 0) + 1;
-    }
-
-    final colors = {
-      ProjectStatus.draft: Colors.grey,
-      ProjectStatus.submitted: Colors.blue,
-      ProjectStatus.pendingApproval: Colors.orange,
-      ProjectStatus.approved: Colors.green,
-      ProjectStatus.rejected: Colors.red,
-      ProjectStatus.onHold: Colors.purple,
-      ProjectStatus.cancelled: Colors.brown,
-    };
-
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 180,
-            child: PieChart(
-              PieChartData(
-                sections: statusCounts.entries.map((e) {
-                  return PieChartSectionData(
-                    value: e.value.toDouble(),
-                    title: '${e.value}',
-                    color: colors[e.key] ?? Colors.grey,
-                    radius: 50,
-                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  );
-                }).toList(),
-                sectionsSpace: 2,
-                centerSpaceRadius: 25,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: statusCounts.entries.map((e) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 12, height: 12, decoration: BoxDecoration(color: colors[e.key], borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(width: 8),
-                  Text(e.key.displayName, style: const TextStyle(fontSize: 11)),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSegmentPieChart(BuildContext context, List<Project> projects) {
-    if (projects.isEmpty) {
-      return const Center(child: Text('No projects'));
-    }
-
-    final segmentCounts = <String, int>{};
-    for (final project in projects) {
-      final segment = project.segment.isNotEmpty ? project.segment : 'Unknown';
-      segmentCounts[segment] = (segmentCounts[segment] ?? 0) + 1;
-    }
-
-    final colors = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal, Colors.pink, Colors.amber];
-
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 180,
-            child: PieChart(
-              PieChartData(
-                sections: segmentCounts.entries.toList().asMap().entries.map((e) {
-                  return PieChartSectionData(
-                    value: e.value.value.toDouble(),
-                    title: '${e.value.value}',
-                    color: colors[e.key % colors.length],
-                    radius: 50,
-                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  );
-                }).toList(),
-                sectionsSpace: 2,
-                centerSpaceRadius: 25,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: segmentCounts.entries.toList().asMap().entries.map((e) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 12, height: 12, decoration: BoxDecoration(color: colors[e.key % colors.length], borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(width: 8),
-                  Text(e.value.key, style: const TextStyle(fontSize: 11)),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryPieChart(BuildContext context, List<Project> projects) {
-    if (projects.isEmpty) {
-      return const Center(child: Text('No projects'));
-    }
-
-    final categoryCounts = <String, int>{};
-    for (final project in projects) {
-      final category = project.icCategory?.isNotEmpty == true ? project.icCategory! : 'Unknown';
-      categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
-    }
-
-    final colors = [Colors.indigo, Colors.cyan, Colors.lime, Colors.deepOrange, Colors.blueGrey, Colors.red];
-
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 180,
-            child: PieChart(
-              PieChartData(
-                sections: categoryCounts.entries.toList().asMap().entries.map((e) {
-                  return PieChartSectionData(
-                    value: e.value.value.toDouble(),
-                    title: '${e.value.value}',
-                    color: colors[e.key % colors.length],
-                    radius: 50,
-                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  );
-                }).toList(),
-                sectionsSpace: 2,
-                centerSpaceRadius: 25,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: categoryCounts.entries.toList().asMap().entries.map((e) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 12, height: 12, decoration: BoxDecoration(color: colors[e.key % colors.length], borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(width: 8),
-                  Text(e.value.key, style: const TextStyle(fontSize: 11)),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-}
-
-class _KeyMetricCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final String? subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-
-  const _KeyMetricCard({
-    required this.title,
-    required this.value,
-    this.subtitle,
-    required this.icon,
-    required this.color,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Card(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Icon(icon, size: 36, color: color),
-                const SizedBox(height: 12),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w500)),
-                ],
-                if (onTap != null) ...[
-                  const SizedBox(height: 8),
-                  Text('Tap to view', style: TextStyle(color: Colors.grey[400], fontSize: 10)),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChartCard extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const _ChartCard({required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildUserStatsCard(BuildContext context, AsyncValue usersAsync) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
-            child,
+            Row(
+              children: [
+                Icon(Icons.people, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text('User Statistics', style: Theme.of(context).textTheme.titleMedium),
+              ],
+            ),
+            const Divider(height: 24),
+            usersAsync.when(
+              data: (users) {
+                final activeCount = users.where((u) => u.isActive).length;
+                final adminCount = users.where((u) => u.role == UserRole.admin).length;
+                final execCount = users.where((u) => u.role == UserRole.executive).length;
+                final approverCount = users.where((u) => u.role == UserRole.approver).length;
+                final requesterCount = users.where((u) => u.role == UserRole.requester).length;
+                return Column(
+                  children: [
+                    _ConfigRow(label: 'Total Users', value: '${users.length}'),
+                    _ConfigRow(label: 'Active Users', value: '$activeCount'),
+                    _ConfigRow(label: 'Admins', value: '$adminCount'),
+                    _ConfigRow(label: 'Executives', value: '$execCount'),
+                    _ConfigRow(label: 'Approvers', value: '$approverCount'),
+                    _ConfigRow(label: 'Requesters', value: '$requesterCount'),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('Error: $e'),
+            ),
           ],
         ),
       ),
@@ -818,6 +685,7 @@ class _PipelineCard extends StatelessWidget {
   final Color color;
   final IconData icon;
   final VoidCallback? onTap;
+  final bool isCompact;
 
   const _PipelineCard({
     required this.title,
@@ -825,6 +693,7 @@ class _PipelineCard extends StatelessWidget {
     required this.color,
     required this.icon,
     this.onTap,
+    this.isCompact = false,
   });
 
   @override
@@ -835,20 +704,21 @@ class _PipelineCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isCompact ? 12 : 16),
           child: Column(
             children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 8),
+              Icon(icon, color: color, size: isCompact ? 24 : 28),
+              SizedBox(height: isCompact ? 4 : 8),
               Text(
                 '$count',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: color,
+                  fontSize: isCompact ? 20 : null,
                 ),
               ),
-              Text(title, style: TextStyle(color: Colors.grey[700], fontSize: 12)),
-              if (onTap != null && count > 0) ...[
+              Text(title, style: TextStyle(color: Colors.grey[700], fontSize: isCompact ? 11 : 12)),
+              if (onTap != null && count > 0 && !isCompact) ...[
                 const SizedBox(height: 4),
                 Text('Tap to view', style: TextStyle(color: Colors.grey[400], fontSize: 10)),
               ],
@@ -934,192 +804,4 @@ class _AnalysisToolCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _StatusIcon extends StatelessWidget {
-  final ProjectStatus status;
-
-  const _StatusIcon({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    IconData icon;
-    Color color;
-
-    switch (status) {
-      case ProjectStatus.draft:
-        icon = Icons.edit;
-        color = Colors.grey;
-        break;
-      case ProjectStatus.submitted:
-        icon = Icons.send;
-        color = Colors.blue;
-        break;
-      case ProjectStatus.pendingApproval:
-        icon = Icons.hourglass_empty;
-        color = Colors.orange;
-        break;
-      case ProjectStatus.approved:
-        icon = Icons.check_circle;
-        color = Colors.green;
-        break;
-      case ProjectStatus.rejected:
-        icon = Icons.cancel;
-        color = Colors.red;
-        break;
-      case ProjectStatus.onHold:
-        icon = Icons.pause_circle;
-        color = Colors.purple;
-        break;
-      case ProjectStatus.cancelled:
-        icon = Icons.block;
-        color = Colors.brown;
-        break;
-    }
-
-    return CircleAvatar(
-      backgroundColor: color.withValues(alpha: 0.2),
-      child: Icon(icon, color: color, size: 20),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final ProjectStatus status;
-
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    Color color;
-    switch (status) {
-      case ProjectStatus.draft:
-        color = Colors.grey;
-        break;
-      case ProjectStatus.submitted:
-      case ProjectStatus.pendingApproval:
-        color = Colors.orange;
-        break;
-      case ProjectStatus.approved:
-        color = Colors.green;
-        break;
-      case ProjectStatus.rejected:
-        color = Colors.red;
-        break;
-      case ProjectStatus.onHold:
-        color = Colors.purple;
-        break;
-      case ProjectStatus.cancelled:
-        color = Colors.brown;
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        status.displayName,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
-
-/// Drill-down dialog showing filtered projects
-void _showProjectDrillDown({
-  required BuildContext context,
-  required String title,
-  required List<Project> projects,
-  required Color color,
-}) {
-  showDialog(
-    context: context,
-    builder: (context) => Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.folder_open, color: color),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          '${projects.length} project${projects.length == 1 ? '' : 's'}',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            // Project list
-            Flexible(
-              child: projects.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('No projects in this category'),
-                    )
-                  : ListView.separated(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: projects.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final project = projects[index];
-                        return ListTile(
-                          leading: _StatusIcon(status: project.status),
-                          title: Text(project.projectName),
-                          subtitle: Text(
-                            '${project.pfrNumber} | ${project.segment} | ${project.businessUnit}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              _StatusBadge(status: project.status),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('MMM dd, yyyy').format(project.updatedAt),
-                                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            context.go('/project/${project.id}/analysis');
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }

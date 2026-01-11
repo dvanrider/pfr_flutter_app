@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,12 +6,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/financial_constants.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../../data/models/project.dart';
 import '../../../data/models/financial_items.dart';
 import '../../../providers/providers.dart';
 import '../../../services/pdf_export_service.dart';
-import '../../widgets/comments_section.dart';
-import '../../widgets/attachments_section.dart';
 
 class AnalysisDashboardScreen extends ConsumerWidget {
   final String projectId;
@@ -63,65 +61,142 @@ class _DashboardScaffold extends ConsumerWidget {
       startYear: project.startYear,
     )));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analysis Dashboard'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/projects'),
-        ),
-        actions: [
-          if (ref.watch(canViewExecutiveDashboardProvider))
-            IconButton(
-              icon: const Icon(Icons.dashboard),
-              onPressed: () => context.go('/executive'),
-              tooltip: 'Executive Dashboard',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenSize = getScreenSize(constraints.maxWidth);
+        final isMobile = screenSize == ScreenSize.mobile;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(isMobile ? 'Analysis' : 'Analysis Dashboard'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go('/projects'),
             ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () => context.go('/help/metrics'),
-            tooltip: 'Metrics Guide',
+            actions: isMobile
+                ? [
+                    // Show PDF and menu on mobile
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf),
+                      onPressed: financialsAsync.whenOrNull(
+                        data: (financials) => () async {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Generating PDF...')),
+                          );
+                          try {
+                            await PdfExportService.exportProject(
+                              project: project,
+                              financials: financials,
+                            );
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error exporting PDF: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      tooltip: 'Export PDF',
+                    ),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'help':
+                            context.go('/help/metrics');
+                            break;
+                          case 'financials':
+                            context.go('/project/${project.id}/financials');
+                            break;
+                          case 'edit':
+                            context.go('/project/${project.id}');
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit, size: 20),
+                              SizedBox(width: 12),
+                              Text('Edit Project'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'financials',
+                          child: Row(
+                            children: [
+                              Icon(Icons.attach_money, size: 20),
+                              SizedBox(width: 12),
+                              Text('Edit Financials'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'help',
+                          child: Row(
+                            children: [
+                              Icon(Icons.help_outline, size: 20),
+                              SizedBox(width: 12),
+                              Text('Metrics Guide'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ]
+                : [
+                    // Desktop: show all icons
+                    IconButton(
+                      icon: const Icon(Icons.help_outline),
+                      onPressed: () => context.go('/help/metrics'),
+                      tooltip: 'Metrics Guide',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.attach_money),
+                      onPressed: () => context.go('/project/${project.id}/financials'),
+                      tooltip: 'Edit Financials',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => context.go('/project/${project.id}'),
+                      tooltip: 'Edit Project',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf),
+                      onPressed: financialsAsync.whenOrNull(
+                        data: (financials) => () async {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Generating PDF...')),
+                          );
+                          try {
+                            await PdfExportService.exportProject(
+                              project: project,
+                              financials: financials,
+                            );
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error exporting PDF: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      tooltip: 'Export PDF',
+                    ),
+                  ],
           ),
-          IconButton(
-            icon: const Icon(Icons.attach_money),
-            onPressed: () => context.go('/project/${project.id}/financials'),
-            tooltip: 'Edit Financials',
+          body: financialsAsync.when(
+            data: (financials) => _DashboardBody(project: project, financials: financials),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error loading financials: $e')),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => context.go('/project/${project.id}'),
-            tooltip: 'Edit Project',
-          ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            onPressed: financialsAsync.whenOrNull(
-              data: (financials) => () async {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Generating PDF...')),
-                );
-                try {
-                  await PdfExportService.exportProject(
-                    project: project,
-                    financials: financials,
-                  );
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error exporting PDF: $e')),
-                    );
-                  }
-                }
-              },
-            ),
-            tooltip: 'Export PDF',
-          ),
-        ],
-      ),
-      body: financialsAsync.when(
-        data: (financials) => _DashboardBody(project: project, financials: financials),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error loading financials: $e')),
-      ),
+        );
+      },
     );
   }
 }
@@ -134,102 +209,76 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ProjectHeader(project: project),
-          const SizedBox(height: 24),
-          if (!financials.hasData)
-            _NoDataCard(projectId: project.id)
-          else ...[
-            _KeyMetricsRow(financials: financials),
-            const SizedBox(height: 24),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _CashFlowChart(financials: financials, startYear: project.startYear),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: _CostBreakdownCard(financials: financials),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenSize = getScreenSize(constraints.maxWidth);
+        final isMobile = screenSize == ScreenSize.mobile;
+        final padding = getResponsivePadding(screenSize);
+        final spacing = getResponsiveSpacing(screenSize);
+        final largeSpacing = getResponsiveLargeSpacing(screenSize);
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(padding),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _ProjectDetailsCard(project: project)),
-              const SizedBox(width: 24),
-              Expanded(child: _TimelineCard(project: project)),
+              _ProjectHeader(project: project, isMobile: isMobile),
+              SizedBox(height: largeSpacing),
+              if (!financials.hasData)
+                _NoDataCard(projectId: project.id)
+              else ...[
+                _KeyMetricsRow(financials: financials, isMobile: isMobile),
+                SizedBox(height: largeSpacing),
+                if (isMobile)
+                  Column(
+                    children: [
+                      _CashFlowChart(financials: financials, startYear: project.startYear),
+                      SizedBox(height: spacing),
+                      _CostBreakdownCard(financials: financials),
+                    ],
+                  )
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _CashFlowChart(financials: financials, startYear: project.startYear),
+                      ),
+                      SizedBox(width: spacing),
+                      Expanded(
+                        child: _CostBreakdownCard(financials: financials),
+                      ),
+                    ],
+                  ),
+                SizedBox(height: largeSpacing),
+              ],
+              if (isMobile)
+                Column(
+                  children: [
+                    _ProjectDetailsCard(project: project),
+                    SizedBox(height: spacing),
+                    _TimelineCard(project: project),
+                  ],
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _ProjectDetailsCard(project: project)),
+                    SizedBox(width: spacing),
+                    Expanded(child: _TimelineCard(project: project)),
+                  ],
+                ),
+              if (financials.hasData) ...[
+                SizedBox(height: largeSpacing),
+                _YearlyBreakdownTable(financials: financials, startYear: project.startYear),
+              ],
+              const SizedBox(height: 48),
             ],
           ),
-          if (financials.hasData) ...[
-            const SizedBox(height: 24),
-            _YearlyBreakdownTable(financials: financials, startYear: project.startYear),
-            if (financials.hasActualsData) ...[
-              const SizedBox(height: 24),
-              _VarianceSummarySection(financials: financials, startYear: project.startYear),
-            ],
-          ],
-          const SizedBox(height: 24),
-          // Collaboration Section
-          _CollaborationSection(projectId: project.id, projectName: project.projectName),
-          const SizedBox(height: 48),
-        ],
-      ),
-    );
-  }
-}
-
-/// Collaboration section with Comments and Attachments
-class _CollaborationSection extends StatelessWidget {
-  final String projectId;
-  final String projectName;
-
-  const _CollaborationSection({
-    required this.projectId,
-    required this.projectName,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Collaboration',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 3,
-              child: CommentsSection(
-                projectId: projectId,
-                projectName: projectName,
-              ),
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              flex: 2,
-              child: AttachmentsSection(
-                projectId: projectId,
-                projectName: projectName,
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -274,8 +323,9 @@ class _NoDataCard extends StatelessWidget {
 
 class _ProjectHeader extends StatelessWidget {
   final Project project;
+  final bool isMobile;
 
-  const _ProjectHeader({required this.project});
+  const _ProjectHeader({required this.project, this.isMobile = false});
 
   @override
   Widget build(BuildContext context) {
@@ -283,70 +333,132 @@ class _ProjectHeader extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        child: isMobile
+            ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
                           project.pfrNumber,
                           style: TextStyle(
                             color: theme.colorScheme.onPrimaryContainer,
                             fontWeight: FontWeight.w600,
+                            fontSize: 12,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
                       Tooltip(
                         message: project.statusHistory.isNotEmpty
                             ? 'Latest: ${project.statusHistory.last.note}'
                             : 'No status notes',
                         child: _StatusChip(status: project.status),
                       ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          project.currency,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Text(
                     project.projectName,
-                    style: theme.textTheme.headlineSmall?.copyWith(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
                     '${project.segment} / ${project.businessUnitGroup} / ${project.businessUnit}',
-                    style: theme.textTheme.bodyLarge?.copyWith(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.grey[600],
                     ),
                   ),
                 ],
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                project.pfrNumber,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Tooltip(
+                              message: project.statusHistory.isNotEmpty
+                                  ? 'Latest: ${project.statusHistory.last.note}'
+                                  : 'No status notes',
+                              child: _StatusChip(status: project.status),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          project.projectName,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${project.segment} / ${project.businessUnitGroup} / ${project.businessUnit}',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Currency',
+                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                      ),
+                      Text(
+                        project.currency,
+                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Currency',
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
-                ),
-                Text(
-                  project.currency,
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -406,8 +518,9 @@ class _StatusChip extends StatelessWidget {
 
 class _KeyMetricsRow extends StatelessWidget {
   final ProjectFinancials financials;
+  final bool isMobile;
 
-  const _KeyMetricsRow({required this.financials});
+  const _KeyMetricsRow({required this.financials, this.isMobile = false});
 
   void _showNPVDrillDown(BuildContext context) {
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
@@ -450,7 +563,7 @@ class _KeyMetricsRow extends StatelessWidget {
                     ...List.generate(financials.projectionYears, (i) {
                       final year = financials.startYear + i;
                       final cashFlow = financials.getNetCashFlowForYear(year);
-                      final discountFactor = math.pow(1 + rate, i + 1);
+                      final discountFactor = pow(1 + rate, i + 1);
                       final presentValue = cashFlow / discountFactor;
                       return TableRow(
                         children: [
@@ -820,92 +933,118 @@ class _KeyMetricsRow extends StatelessWidget {
     final paybackMonths = financials.calculatePaybackMonths();
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 
+    final npvCard = _MetricCard(
+      title: 'Net Present Value',
+      value: currencyFormat.format(npv),
+      subtitle: 'At ${(FinancialConstants.hurdleRate * 100).toInt()}% hurdle rate',
+      icon: Icons.trending_up,
+      color: npv >= 0 ? Colors.green : Colors.red,
+      formula: 'NPV = Σ (Cash Flow / (1 + r)^t)',
+      explanation: 'Net Present Value represents the total value of all future cash flows, '
+          'discounted back to today\'s dollars using the ${(FinancialConstants.hurdleRate * 100).toInt()}% hurdle rate. '
+          'It accounts for the time value of money.',
+      interpretation: const [
+        'NPV > 0: Project creates value - GOOD',
+        'NPV = 0: Project breaks even',
+        'NPV < 0: Project destroys value - CAUTION',
+      ],
+      onTap: () => _showNPVDrillDown(context),
+      isCompact: isMobile,
+    );
+
+    final irrCard = _MetricCard(
+      title: 'Internal Rate of Return',
+      value: irr != null ? '${(irr * 100).toStringAsFixed(1)}%' : 'N/A',
+      subtitle: irr != null && irr >= FinancialConstants.hurdleRate
+          ? 'Above hurdle rate'
+          : 'Below hurdle rate',
+      icon: Icons.percent,
+      color: irr != null && irr >= FinancialConstants.hurdleRate ? Colors.green : Colors.orange,
+      formula: 'Find r where: Σ (Cash Flow / (1 + r)^t) = 0',
+      explanation: 'Internal Rate of Return is the discount rate that makes the NPV equal to zero. '
+          'Think of it as the "interest rate" the project earns on invested capital. '
+          'Calculated using the Newton-Raphson iterative method.',
+      interpretation: [
+        'IRR > ${(FinancialConstants.hurdleRate * 100).toInt()}%: Exceeds hurdle rate - GOOD',
+        'IRR = ${(FinancialConstants.hurdleRate * 100).toInt()}%: Meets minimum requirement',
+        'IRR < ${(FinancialConstants.hurdleRate * 100).toInt()}%: Below hurdle rate - CAUTION',
+        'N/A: Cannot calculate (no sign change in cash flows)',
+      ],
+      onTap: () => _showIRRDrillDown(context),
+      isCompact: isMobile,
+    );
+
+    final paybackCard = _MetricCard(
+      title: 'Payback Period',
+      value: paybackMonths != null
+          ? '${paybackMonths ~/ 12}y ${paybackMonths % 12}m'
+          : 'N/A',
+      subtitle: 'Simple payback',
+      icon: Icons.access_time,
+      color: paybackMonths != null && paybackMonths <= 36 ? Colors.green : Colors.orange,
+      formula: 'Find t where: Cumulative Cash Flow >= 0',
+      explanation: 'The payback period is the time it takes for cumulative cash flows to equal zero - '
+          'essentially, how long until you "get your money back." This is a simple (non-discounted) calculation.',
+      interpretation: const [
+        'Under 36 months (3 years): Quick payback - GOOD',
+        '36-60 months: Moderate payback',
+        'Over 60 months: Slow payback - CAUTION',
+        'N/A: No payback within projection period',
+      ],
+      onTap: () => _showPaybackDrillDown(context),
+      isCompact: isMobile,
+    );
+
+    final investmentCard = _MetricCard(
+      title: 'Total Investment',
+      value: currencyFormat.format(financials.totalCosts),
+      subtitle: 'CapEx + OpEx',
+      icon: Icons.account_balance_wallet,
+      color: Theme.of(context).colorScheme.primary,
+      formula: 'Total = CapEx + OpEx (all ${FinancialConstants.projectionYears} years)',
+      explanation: 'Total Investment is the sum of all Capital Expenditures (one-time costs like equipment, '
+          'software, infrastructure) and Operating Expenditures (ongoing costs like maintenance, licenses, labor) '
+          'over the ${FinancialConstants.projectionYears}-year projection period.',
+      interpretation: const [
+        'Compare against budget allocations',
+        'Review cost breakdown for CapEx vs OpEx ratio',
+        'Consider phasing of costs across years',
+      ],
+      onTap: () => _showInvestmentDrillDown(context),
+      isCompact: isMobile,
+    );
+
+    if (isMobile) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: npvCard),
+              const SizedBox(width: 8),
+              Expanded(child: irrCard),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: paybackCard),
+              const SizedBox(width: 8),
+              Expanded(child: investmentCard),
+            ],
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
-        Expanded(
-          child: _MetricCard(
-            title: 'Net Present Value',
-            value: currencyFormat.format(npv),
-            subtitle: 'At ${(FinancialConstants.hurdleRate * 100).toInt()}% hurdle rate',
-            icon: Icons.trending_up,
-            color: npv >= 0 ? Colors.green : Colors.red,
-            formula: 'NPV = Σ (Cash Flow / (1 + r)^t)',
-            explanation: 'Net Present Value represents the total value of all future cash flows, '
-                'discounted back to today\'s dollars using the ${(FinancialConstants.hurdleRate * 100).toInt()}% hurdle rate. '
-                'It accounts for the time value of money.',
-            interpretation: const [
-              'NPV > 0: Project creates value - GOOD',
-              'NPV = 0: Project breaks even',
-              'NPV < 0: Project destroys value - CAUTION',
-            ],
-            onTap: () => _showNPVDrillDown(context),
-          ),
-        ),
+        Expanded(child: npvCard),
         const SizedBox(width: 16),
-        Expanded(
-          child: _MetricCard(
-            title: 'Internal Rate of Return',
-            value: irr != null ? '${(irr * 100).toStringAsFixed(1)}%' : 'N/A',
-            subtitle: irr != null && irr >= FinancialConstants.hurdleRate
-                ? 'Above hurdle rate'
-                : 'Below hurdle rate',
-            icon: Icons.percent,
-            color: irr != null && irr >= FinancialConstants.hurdleRate ? Colors.green : Colors.orange,
-            formula: 'Find r where: Σ (Cash Flow / (1 + r)^t) = 0',
-            explanation: 'Internal Rate of Return is the discount rate that makes the NPV equal to zero. '
-                'Think of it as the "interest rate" the project earns on invested capital. '
-                'Calculated using the Newton-Raphson iterative method.',
-            interpretation: [
-              'IRR > ${(FinancialConstants.hurdleRate * 100).toInt()}%: Exceeds hurdle rate - GOOD',
-              'IRR = ${(FinancialConstants.hurdleRate * 100).toInt()}%: Meets minimum requirement',
-              'IRR < ${(FinancialConstants.hurdleRate * 100).toInt()}%: Below hurdle rate - CAUTION',
-              'N/A: Cannot calculate (no sign change in cash flows)',
-            ],
-            onTap: () => _showIRRDrillDown(context),
-          ),
-        ),
+        Expanded(child: irrCard),
         const SizedBox(width: 16),
-        Expanded(
-          child: _MetricCard(
-            title: 'Payback Period',
-            value: paybackMonths != null
-                ? '${paybackMonths ~/ 12}y ${paybackMonths % 12}m'
-                : 'N/A',
-            subtitle: 'Simple payback',
-            icon: Icons.access_time,
-            color: paybackMonths != null && paybackMonths <= 36 ? Colors.green : Colors.orange,
-            formula: 'Find t where: Cumulative Cash Flow >= 0',
-            explanation: 'The payback period is the time it takes for cumulative cash flows to equal zero - '
-                'essentially, how long until you "get your money back." This is a simple (non-discounted) calculation.',
-            interpretation: const [
-              'Under 36 months (3 years): Quick payback - GOOD',
-              '36-60 months: Moderate payback',
-              'Over 60 months: Slow payback - CAUTION',
-              'N/A: No payback within projection period',
-            ],
-            onTap: () => _showPaybackDrillDown(context),
-          ),
-        ),
+        Expanded(child: paybackCard),
         const SizedBox(width: 16),
-        Expanded(
-          child: _MetricCard(
-            title: 'Total Investment',
-            value: currencyFormat.format(financials.totalCosts),
-            subtitle: 'CapEx + OpEx',
-            icon: Icons.account_balance_wallet,
-            color: Theme.of(context).colorScheme.primary,
-            formula: 'Total = CapEx + OpEx (all ${FinancialConstants.projectionYears} years)',
-            explanation: 'Total Investment is the sum of all Capital Expenditures (one-time costs like equipment, '
-                'software, infrastructure) and Operating Expenditures (ongoing costs like maintenance, licenses, labor) '
-                'over the ${FinancialConstants.projectionYears}-year projection period.',
-            interpretation: const [
-              'Compare against budget allocations',
-              'Review cost breakdown for CapEx vs OpEx ratio',
-              'Consider phasing of costs across years',
-            ],
-            onTap: () => _showInvestmentDrillDown(context),
-          ),
-        ),
+        Expanded(child: investmentCard),
       ],
     );
   }
@@ -921,6 +1060,7 @@ class _MetricCard extends StatelessWidget {
   final String? explanation;
   final List<String>? interpretation;
   final VoidCallback? onTap;
+  final bool isCompact;
 
   const _MetricCard({
     required this.title,
@@ -932,6 +1072,7 @@ class _MetricCard extends StatelessWidget {
     this.explanation,
     this.interpretation,
     this.onTap,
+    this.isCompact = false,
   });
 
   void _showInfoDialog(BuildContext context) {
@@ -1030,26 +1171,30 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasInfo = formula != null || explanation != null;
+    final theme = Theme.of(context);
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(isCompact ? 12 : 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(icon, color: color, size: 20),
-                  const SizedBox(width: 8),
+                  Icon(icon, color: color, size: isCompact ? 16 : 20),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
+                        fontSize: isCompact ? 10 : null,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (hasInfo)
@@ -1057,39 +1202,44 @@ class _MetricCard extends StatelessWidget {
                       onTap: () => _showInfoDialog(context),
                       borderRadius: BorderRadius.circular(12),
                       child: Padding(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(2),
                         child: Icon(
                           Icons.info_outline,
-                          size: 18,
+                          size: isCompact ? 14 : 18,
                           color: Colors.grey[500],
                         ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: isCompact ? 8 : 12),
               Text(
                 value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                style: (isCompact ? theme.textTheme.titleMedium : theme.textTheme.headlineSmall)?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: isCompact ? 2 : 4),
               Row(
                 children: [
                   Expanded(
                     child: Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.grey[500],
+                        fontSize: isCompact ? 10 : null,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (onTap != null)
                     Icon(
                       Icons.chevron_right,
-                      size: 16,
+                      size: isCompact ? 14 : 16,
                       color: Colors.grey[400],
                     ),
                 ],
@@ -1890,227 +2040,6 @@ class _YearlyBreakdownTable extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold, color: color),
         )),
       ],
-    );
-  }
-}
-
-class _VarianceSummarySection extends StatelessWidget {
-  final ProjectFinancials financials;
-  final int startYear;
-
-  const _VarianceSummarySection({required this.financials, required this.startYear});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.compare_arrows, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Budget vs Actuals',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Variance Summary Cards
-            Row(
-              children: [
-                Expanded(
-                  child: _VarianceCard(
-                    title: 'Cost Variance',
-                    budget: financials.totalCosts,
-                    actual: financials.totalActualCosts,
-                    variance: financials.totalCostVariance,
-                    isCost: true,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _VarianceCard(
-                    title: 'Benefit Variance',
-                    budget: financials.totalBenefits,
-                    actual: financials.totalActualBenefits,
-                    variance: financials.totalBenefitVariance,
-                    isCost: false,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // Variance Detail Table
-            Text(
-              'Yearly Variance Detail',
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
-                columnSpacing: 16,
-                columns: [
-                  const DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
-                  const DataColumn(label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                  ...List.generate(
-                    FinancialConstants.projectionYears,
-                    (i) => DataColumn(
-                      label: Text('${startYear + i}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      numeric: true,
-                    ),
-                  ),
-                  const DataColumn(label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                ],
-                rows: [
-                  _buildCategoryRow('CapEx', 'Budget', financials.yearlyCapEx, currencyFormat),
-                  _buildCategoryRow('', 'Actual', financials.yearlyActualCapEx, currencyFormat),
-                  _buildVarianceRow('', 'Variance', financials.yearlyCapEx, financials.yearlyActualCapEx, currencyFormat, isCost: true),
-                  _buildCategoryRow('OpEx', 'Budget', financials.yearlyOpEx, currencyFormat),
-                  _buildCategoryRow('', 'Actual', financials.yearlyActualOpEx, currencyFormat),
-                  _buildVarianceRow('', 'Variance', financials.yearlyOpEx, financials.yearlyActualOpEx, currencyFormat, isCost: true),
-                  _buildCategoryRow('Benefits', 'Budget', financials.yearlyBenefits, currencyFormat),
-                  _buildCategoryRow('', 'Actual', financials.yearlyActualBenefits, currencyFormat),
-                  _buildVarianceRow('', 'Variance', financials.yearlyBenefits, financials.yearlyActualBenefits, currencyFormat, isCost: false),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  DataRow _buildCategoryRow(String category, String type, List<double> values, NumberFormat format) {
-    final total = values.fold(0.0, (sum, v) => sum + v);
-    return DataRow(cells: [
-      DataCell(Text(category, style: TextStyle(fontWeight: category.isNotEmpty ? FontWeight.bold : null))),
-      DataCell(Text(type)),
-      ...values.map((v) => DataCell(Text(format.format(v)))),
-      DataCell(Text(format.format(total), style: const TextStyle(fontWeight: FontWeight.bold))),
-    ]);
-  }
-
-  DataRow _buildVarianceRow(String category, String type, List<double> budgets, List<double> actuals,
-      NumberFormat format, {required bool isCost}) {
-    final variances = List.generate(budgets.length, (i) {
-      return isCost ? (budgets[i] - actuals[i]) : (actuals[i] - budgets[i]);
-    });
-    final totalVariance = variances.fold(0.0, (sum, v) => sum + v);
-
-    return DataRow(cells: [
-      DataCell(Text(category)),
-      DataCell(Text(type, style: const TextStyle(fontStyle: FontStyle.italic))),
-      ...variances.map((v) => DataCell(Text(
-        '${v >= 0 ? '+' : ''}${format.format(v)}',
-        style: TextStyle(
-          color: v >= 0 ? Colors.green[700] : Colors.red[700],
-          fontWeight: FontWeight.w500,
-        ),
-      ))),
-      DataCell(Text(
-        '${totalVariance >= 0 ? '+' : ''}${format.format(totalVariance)}',
-        style: TextStyle(
-          color: totalVariance >= 0 ? Colors.green[700] : Colors.red[700],
-          fontWeight: FontWeight.bold,
-        ),
-      )),
-    ]);
-  }
-}
-
-class _VarianceCard extends StatelessWidget {
-  final String title;
-  final double budget;
-  final double actual;
-  final double variance;
-  final bool isCost;
-
-  const _VarianceCard({
-    required this.title,
-    required this.budget,
-    required this.actual,
-    required this.variance,
-    required this.isCost,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-    final variancePercent = budget > 0 ? (variance / budget * 100) : 0.0;
-    final isFavorable = variance >= 0;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isFavorable ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isFavorable ? Colors.green[300]! : Colors.red[300]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isFavorable ? Icons.trending_up : Icons.trending_down,
-                color: isFavorable ? Colors.green[700] : Colors.red[700],
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(title, style: Theme.of(context).textTheme.titleSmall),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Budget', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                  Text(currencyFormat.format(budget), style: const TextStyle(fontWeight: FontWeight.w500)),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Actual', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                  Text(currencyFormat.format(actual), style: const TextStyle(fontWeight: FontWeight.w500)),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('Variance', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                  Text(
-                    '${variance >= 0 ? '+' : ''}${currencyFormat.format(variance)}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isFavorable ? Colors.green[700] : Colors.red[700],
-                    ),
-                  ),
-                  Text(
-                    '${variancePercent >= 0 ? '+' : ''}${variancePercent.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isFavorable ? Colors.green[600] : Colors.red[600],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/financial_constants.dart';
+import '../../../core/utils/responsive_utils.dart';
 import '../../../data/models/project.dart';
 import '../../../providers/providers.dart';
 
@@ -36,31 +37,44 @@ class ProjectComparisonScreen extends ConsumerWidget {
     final selectedIds = ref.watch(selectedProjectsProvider);
     final sortMetric = ref.watch(comparisonSortMetricProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Project Comparison'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/projects'),
-        ),
-        actions: [
-          if (selectedIds.isNotEmpty)
-            TextButton.icon(
-              onPressed: () => ref.read(selectedProjectsProvider.notifier).state = [],
-              icon: const Icon(Icons.clear_all, color: Colors.white),
-              label: const Text('Clear', style: TextStyle(color: Colors.white)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenSize = getScreenSize(constraints.maxWidth);
+        final isMobile = screenSize == ScreenSize.mobile;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(isMobile ? 'Compare' : 'Project Comparison'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go('/projects'),
             ),
-        ],
-      ),
-      body: projectsAsync.when(
-        data: (projects) => _ComparisonBody(
-          projects: projects,
-          selectedIds: selectedIds,
-          sortMetric: sortMetric,
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-      ),
+            actions: [
+              if (selectedIds.isNotEmpty)
+                isMobile
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_all),
+                        onPressed: () => ref.read(selectedProjectsProvider.notifier).state = [],
+                        tooltip: 'Clear selection',
+                      )
+                    : TextButton.icon(
+                        onPressed: () => ref.read(selectedProjectsProvider.notifier).state = [],
+                        icon: const Icon(Icons.clear_all, color: Colors.white),
+                        label: const Text('Clear', style: TextStyle(color: Colors.white)),
+                      ),
+            ],
+          ),
+          body: projectsAsync.when(
+            data: (projects) => _ComparisonBody(
+              projects: projects,
+              selectedIds: selectedIds,
+              sortMetric: sortMetric,
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+          ),
+        );
+      },
     );
   }
 }
@@ -76,115 +90,253 @@ class _ComparisonBody extends ConsumerWidget {
     required this.sortMetric,
   });
 
+  void _showProjectSelectionSheet(BuildContext context, WidgetRef ref, ThemeData theme) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Projects',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Choose 2-3 projects to compare',
+                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                itemCount: projects.length,
+                itemBuilder: (context, index) {
+                  final project = projects[index];
+                  final isSelected = selectedIds.contains(project.id);
+                  final canSelect = selectedIds.length < 3 || isSelected;
+
+                  return ListTile(
+                    leading: Checkbox(
+                      value: isSelected,
+                      onChanged: canSelect
+                          ? (value) {
+                              final notifier = ref.read(selectedProjectsProvider.notifier);
+                              if (value == true) {
+                                notifier.state = [...selectedIds, project.id];
+                              } else {
+                                notifier.state = selectedIds.where((id) => id != project.id).toList();
+                              }
+                            }
+                          : null,
+                    ),
+                    title: Text(
+                      project.projectName,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    subtitle: Text(
+                      project.pfrNumber.isNotEmpty ? project.pfrNumber : 'No PFR #',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    selected: isSelected,
+                    selectedTileColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return Row(
-      children: [
-        // Left panel - Project selection
-        Container(
-          width: 300,
-          decoration: BoxDecoration(
-            border: Border(right: BorderSide(color: Colors.grey[300]!)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Select Projects',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Choose 2-3 projects to compare',
-                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: projects.length,
-                  itemBuilder: (context, index) {
-                    final project = projects[index];
-                    final isSelected = selectedIds.contains(project.id);
-                    final canSelect = selectedIds.length < 3 || isSelected;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenSize = getScreenSize(constraints.maxWidth);
+        final isMobile = screenSize == ScreenSize.mobile;
 
-                    return ListTile(
-                      leading: Checkbox(
-                        value: isSelected,
-                        onChanged: canSelect
-                            ? (value) {
-                                final notifier = ref.read(selectedProjectsProvider.notifier);
-                                if (value == true) {
-                                  notifier.state = [...selectedIds, project.id];
-                                } else {
-                                  notifier.state = selectedIds.where((id) => id != project.id).toList();
-                                }
-                              }
-                            : null,
-                      ),
-                      title: Text(
-                        project.projectName,
-                        style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                      subtitle: Text(
-                        project.pfrNumber.isNotEmpty ? project.pfrNumber : 'No PFR #',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                      selected: isSelected,
-                      selectedTileColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-                    );
-                  },
+        if (isMobile) {
+          // Mobile layout - FAB to select projects, cards stacked
+          return Stack(
+            children: [
+              selectedIds.length < 2
+                  ? _EmptyComparison(isMobile: true, onSelectProjects: () => _showProjectSelectionSheet(context, ref, theme))
+                  : _ComparisonView(
+                      projectIds: selectedIds,
+                      allProjects: projects,
+                      sortMetric: sortMetric,
+                      isMobile: true,
+                    ),
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton.extended(
+                  onPressed: () => _showProjectSelectionSheet(context, ref, theme),
+                  icon: const Icon(Icons.checklist),
+                  label: Text('Select (${selectedIds.length})'),
                 ),
               ),
             ],
-          ),
-        ),
+          );
+        }
 
-        // Right panel - Comparison view
-        Expanded(
-          child: selectedIds.length < 2
-              ? _EmptyComparison()
-              : _ComparisonView(
-                  projectIds: selectedIds,
-                  allProjects: projects,
-                  sortMetric: sortMetric,
-                ),
-        ),
-      ],
+        // Desktop layout - side panel
+        return Row(
+          children: [
+            // Left panel - Project selection
+            Container(
+              width: 300,
+              decoration: BoxDecoration(
+                border: Border(right: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Select Projects',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Choose 2-3 projects to compare',
+                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: projects.length,
+                      itemBuilder: (context, index) {
+                        final project = projects[index];
+                        final isSelected = selectedIds.contains(project.id);
+                        final canSelect = selectedIds.length < 3 || isSelected;
+
+                        return ListTile(
+                          leading: Checkbox(
+                            value: isSelected,
+                            onChanged: canSelect
+                                ? (value) {
+                                    final notifier = ref.read(selectedProjectsProvider.notifier);
+                                    if (value == true) {
+                                      notifier.state = [...selectedIds, project.id];
+                                    } else {
+                                      notifier.state = selectedIds.where((id) => id != project.id).toList();
+                                    }
+                                  }
+                                : null,
+                          ),
+                          title: Text(
+                            project.projectName,
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          subtitle: Text(
+                            project.pfrNumber.isNotEmpty ? project.pfrNumber : 'No PFR #',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                          selected: isSelected,
+                          selectedTileColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Right panel - Comparison view
+            Expanded(
+              child: selectedIds.length < 2
+                  ? _EmptyComparison()
+                  : _ComparisonView(
+                      projectIds: selectedIds,
+                      allProjects: projects,
+                      sortMetric: sortMetric,
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class _EmptyComparison extends StatelessWidget {
+  final bool isMobile;
+  final VoidCallback? onSelectProjects;
+
+  const _EmptyComparison({this.isMobile = false, this.onSelectProjects});
+
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.compare_arrows, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'Select at least 2 projects to compare',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'You can select up to 3 projects for side-by-side comparison',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsets.all(isMobile ? 24 : 48),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.compare_arrows, size: isMobile ? 48 : 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Select at least 2 projects to compare',
+              style: TextStyle(fontSize: isMobile ? 16 : 18, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You can select up to 3 projects for side-by-side comparison',
+              style: TextStyle(fontSize: isMobile ? 12 : 14, color: Colors.grey[500]),
+              textAlign: TextAlign.center,
+            ),
+            if (isMobile && onSelectProjects != null) ...[
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: onSelectProjects,
+                icon: const Icon(Icons.checklist),
+                label: const Text('Select Projects'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -194,11 +346,13 @@ class _ComparisonView extends ConsumerWidget {
   final List<String> projectIds;
   final List<Project> allProjects;
   final ComparisonMetric sortMetric;
+  final bool isMobile;
 
   const _ComparisonView({
     required this.projectIds,
     required this.allProjects,
     required this.sortMetric,
+    this.isMobile = false,
   });
 
   @override
@@ -209,53 +363,105 @@ class _ComparisonView extends ConsumerWidget {
     final selectedProjects = allProjects.where((p) => projectIds.contains(p.id)).toList();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 12 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header with sort options
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Comparison Results',
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              Row(
-                children: [
-                  const Text('Rank by: '),
-                  const SizedBox(width: 8),
-                  SegmentedButton<ComparisonMetric>(
-                    segments: ComparisonMetric.values.map((m) => ButtonSegment(
-                      value: m,
-                      label: Text(m.label),
-                    )).toList(),
-                    selected: {sortMetric},
-                    onSelectionChanged: (selected) {
-                      ref.read(comparisonSortMetricProvider.notifier).state = selected.first;
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Comparison Results',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('Rank by: '),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<ComparisonMetric>(
+                        value: sortMetric,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ComparisonMetric.values.map((m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(m.description),
+                        )).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            ref.read(comparisonSortMetricProvider.notifier).state = value;
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Comparison Results',
+                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    const Text('Rank by: '),
+                    const SizedBox(width: 8),
+                    SegmentedButton<ComparisonMetric>(
+                      segments: ComparisonMetric.values.map((m) => ButtonSegment(
+                        value: m,
+                        label: Text(m.label),
+                      )).toList(),
+                      selected: {sortMetric},
+                      onSelectionChanged: (selected) {
+                        ref.read(comparisonSortMetricProvider.notifier).state = selected.first;
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           const SizedBox(height: 24),
 
-          // Project cards side by side
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: selectedProjects.map((project) {
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+          // Project cards - stacked on mobile, side by side on desktop
+          if (isMobile)
+            Column(
+              children: selectedProjects.map((project) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: _ProjectComparisonCard(
                     project: project,
                     sortMetric: sortMetric,
+                    isCompact: true,
                   ),
-                ),
-              );
-            }).toList(),
-          ),
+                );
+              }).toList(),
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: selectedProjects.map((project) {
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: _ProjectComparisonCard(
+                      project: project,
+                      sortMetric: sortMetric,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
 
           const SizedBox(height: 32),
 
@@ -264,7 +470,11 @@ class _ComparisonView extends ConsumerWidget {
             projectIds: projectIds,
             allProjects: allProjects,
             sortMetric: sortMetric,
+            isMobile: isMobile,
           ),
+
+          // Extra space at bottom for FAB on mobile
+          if (isMobile) const SizedBox(height: 80),
         ],
       ),
     );
@@ -274,10 +484,12 @@ class _ComparisonView extends ConsumerWidget {
 class _ProjectComparisonCard extends ConsumerWidget {
   final Project project;
   final ComparisonMetric sortMetric;
+  final bool isCompact;
 
   const _ProjectComparisonCard({
     required this.project,
     required this.sortMetric,
+    this.isCompact = false,
   });
 
   @override
@@ -444,11 +656,13 @@ class _RankingTable extends ConsumerWidget {
   final List<String> projectIds;
   final List<Project> allProjects;
   final ComparisonMetric sortMetric;
+  final bool isMobile;
 
   const _RankingTable({
     required this.projectIds,
     required this.allProjects,
     required this.sortMetric,
+    this.isMobile = false,
   });
 
   @override
@@ -498,6 +712,103 @@ class _RankingTable extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    // On mobile, use a simplified card-based list instead of table
+    if (isMobile) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Rankings (by ${sortMetric.label})',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ...rankings.asMap().entries.map((entry) {
+                final rank = entry.key + 1;
+                final r = entry.value;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: rank == 1 ? Colors.amber.withValues(alpha: 0.15) : Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: rank == 1 ? Colors.amber : Colors.grey[300]!,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Rank badge
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: rank == 1 ? Colors.amber : Colors.grey[200],
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: rank == 1
+                              ? const Icon(Icons.emoji_events, color: Colors.white, size: 18)
+                              : Text(
+                                  '#$rank',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Project info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              r.project.projectName,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 12,
+                              children: [
+                                Text(
+                                  currencyFormat.format(r.npv),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: r.npv >= 0 ? Colors.green[700] : Colors.red[700],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  r.irr != null ? '${(r.irr! * 100).toStringAsFixed(1)}%' : 'IRR N/A',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                ),
+                                Text(
+                                  r.paybackMonths != null ? '${r.paybackMonths}mo' : 'N/A',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Desktop table view
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
